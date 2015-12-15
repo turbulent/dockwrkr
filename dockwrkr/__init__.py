@@ -11,7 +11,6 @@ from datetime import datetime
 from subprocess import Popen, check_output, CalledProcessError
 
 DOCKER = 'docker'
-DOCKER_MACHINE = 'docker-machine'
 DOCKER_PIDS = '/var/run/dockwrkr'
 
 DOCKER_LIST_OPTIONS = [
@@ -74,7 +73,6 @@ DOCKER_BOOL_OPTIONS = [
   'sig-proxy',
 ]
 
-
 def main():
   dw = dockwrkr()
   dw.handleCmdLine()
@@ -105,7 +103,7 @@ class dockwrkr(object):
     parser = OptionParser(usage="usage: %prog COMMAND [options] [CONTAINER..]")
     parser.add_option("-a", dest="allc", help="Operate on all defined containers", action="store_true", default=False)
     parser.add_option("-f", dest="configFile", help="Override default config file", default="containers.yml")
-    parser.add_option("-d", dest="debug", help="Activate debugging logs", default=False, action="store_true")
+    parser.add_option("-d", dest="debug", help="Activate debugging output", default=False, action="store_true")
     parser.add_option("-t", dest="term", help="Allocate a pseudo-TTY", default=False, action="store_true")
     parser.add_option("-i", dest="interactive", help="Keep STDIN open even if not attached", default=False, action="store_true")
 
@@ -153,10 +151,6 @@ Commands:
   exec          Exec a command on a container
   status        Output container status
   stats         Output live docker container stats
-  
-  machine-create  Create a docker machine for this setup
-  machine-rm      Destroy the docker machine for this setup
-
 """
     return usage
 
@@ -194,10 +188,14 @@ Commands:
 
   def readConfig(self):
     try:
-      stream = open(self.options.configFile, "r")
+      cfile = 'containers.yml'
+      if os.path.isfile(self.options.configFile):
+        cfile = self.options.configFile
+
+      stream = open(cfile, "r")
       self.config = yaml.load(stream)
     except Exception as err:
-      sys.exit("Error reading config file %s:" % err)
+      self.exitWithHelp("Error reading config file %s:" % err)
 
     return self.config
 
@@ -214,8 +212,6 @@ Commands:
       'exec': self.cmdExec,
       'status': self.cmdStatus,
       'stats': self.cmdStats,
-      'machine-create': self.cmdMachineCreate,
-      'machine-rm': self.cmdMachineRm,
     }[x]
 
 
@@ -603,22 +599,6 @@ Commands:
       sys.exit(0)
 
 
-  def cmdMachineCreate(self):
-    cmd = [DOCKER_MACHINE, 'create']
-    cmd.extend(['--driver','virtualbox'])
-    cmd.extend(['--engine-insecure-registry','rsi-master.gcevm.turbulent.ca:5000'])
-    cmd.extend(['--virtualbox-memory','1024'])
-    cmd.extend(['--virtualbox-cpu-count','2'])
-    cmd.extend(['--virtualbox-disk-size','20000'])
-    cmd.append('docker-dev')
-    rcode = self.runProcCommand(cmd)
-    return sys.exit(rcode)
-
-  def cmdMachineRm(self):
-    cmd = [DOCKER_MACHINE, 'rm', 'docker-dev']
-    rcode = self.runProcCommand(cmd)
-    return sys.exit(rcode)
-
   ### lxc helpers ###
 
   def lxcErrorLabel(self,status):
@@ -693,7 +673,6 @@ Commands:
     return statuses
 
   def writePid(self, container, pid):
-    return
     pidfile = "%s/%s.pid" % (DOCKER_PIDS, container)
     try:
       with open(pidfile, 'w') as outfile:
@@ -702,7 +681,6 @@ Commands:
       logging.warn("WARNING - Could not write to pidfile '%s': %s " % (pidfile, err))
 
   def clearPid(self, container):
-    return
     try:
       pidfile = "%s/%s.pid" % (DOCKER_PIDS, container)
       os.remove(pidfile)
