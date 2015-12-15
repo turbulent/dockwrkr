@@ -101,7 +101,7 @@ class dockwrkr(object):
   def getShellOptions(self):
     parser = OptionParser(usage="usage: %prog COMMAND [options] [CONTAINER..]")
     parser.add_option("-a", dest="allc", help="Operate on all defined containers", action="store_true", default=False)
-    parser.add_option("-f", dest="configFile", help="Override default config file", default="containers.yml")
+    parser.add_option("-f", dest="configFile", help="Override default config file")
     parser.add_option("-d", dest="debug", help="Activate debugging output", default=False, action="store_true")
     parser.add_option("-t", dest="term", help="Allocate a pseudo-TTY", default=False, action="store_true")
     parser.add_option("-i", dest="interactive", help="Keep STDIN open even if not attached", default=False, action="store_true")
@@ -187,7 +187,12 @@ Commands:
 
   def readConfig(self):
     try:
-      cfile = self.options.configFile
+      cfile = 'containers.yml'
+      if self.options.configFile:
+        cfile = self.options.configFile
+      else:
+        cfile = os.environ.get('DOCKWRKR_CONF', 'containers.yml')
+
       stream = open(cfile, "r")
       self.config = yaml.load(stream)
     except Exception as err:
