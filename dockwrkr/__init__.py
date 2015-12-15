@@ -80,7 +80,6 @@ def main():
 class dockwrkr(object):
 
   def __init__(self):
-    os.chdir(os.path.dirname(__file__))
     return
 
   def setupLogging(self):
@@ -188,10 +187,7 @@ Commands:
 
   def readConfig(self):
     try:
-      cfile = 'containers.yml'
-      if os.path.isfile(self.options.configFile):
-        cfile = self.options.configFile
-
+      cfile = self.options.configFile
       stream = open(cfile, "r")
       self.config = yaml.load(stream)
     except Exception as err:
