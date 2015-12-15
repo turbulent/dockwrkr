@@ -11,7 +11,7 @@ from datetime import datetime
 from subprocess import Popen, check_output, CalledProcessError
 
 DOCKER = 'docker'
-DOCKER_PIDS = '/var/run/dockwrkr'
+DOCKER_PIDS = '/var/docker/dockwrkr'
 
 DOCKER_LIST_OPTIONS = [
   'add-host',
@@ -80,6 +80,7 @@ def main():
 class dockwrkr(object):
 
   def __init__(self):
+    DOCKER_PIDS = os.environ.get('DOCKWRKR_PIDDIR', '/var/run/docker/dockwrkr')
     return
 
   def setupLogging(self):
