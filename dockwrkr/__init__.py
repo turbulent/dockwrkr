@@ -150,6 +150,8 @@ Commands:
   exec          Exec a command on a container
   status        Output container status
   stats         Output live docker container stats
+ 
+  * Override the configuration file with the DOCKWRKR_CONF environment var.
 """
     return usage
 
