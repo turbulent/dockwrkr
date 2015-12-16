@@ -677,6 +677,12 @@ Commands:
     return statuses
 
   def writePid(self, container, pid):
+    try:
+      os.makedirs(DOCKER_PIDS)
+    except Exception as err:
+      logging.warn("WARNING - Could not create DOCKWRKR_PIDDIR %s : %s" % (DOCKER_PIDS, err))
+      return
+     
     pidfile = "%s/%s.pid" % (DOCKER_PIDS, container)
     try:
       with open(pidfile, 'w') as outfile:
