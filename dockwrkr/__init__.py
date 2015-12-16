@@ -678,7 +678,8 @@ Commands:
 
   def writePid(self, container, pid):
     try:
-      os.makedirs(DOCKER_PIDS)
+      if not os.path.isdir(DOCKER_PIDS):
+        os.makedirs(DOCKER_PIDS)
     except Exception as err:
       logging.warn("WARNING - Could not create DOCKWRKR_PIDDIR %s : %s" % (DOCKER_PIDS, err))
       return
