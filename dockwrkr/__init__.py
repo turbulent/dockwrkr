@@ -11,7 +11,6 @@ from datetime import datetime
 from subprocess import Popen, check_output, CalledProcessError
 
 DOCKER = 'docker'
-DOCKER_PIDS = '/var/docker/dockwrkr'
 
 DOCKER_LIST_OPTIONS = [
   'add-host',
@@ -98,11 +97,11 @@ class dockwrkr(object):
     else:
       self.confFile = os.environ.get('DOCKWRKR_CONF', 'containers.yml')
 
-    self.pidsDir = os.environ.get('DOCKWRKR_PIDDIR', '/var/run/docker/dockwrkr')
+    self.pidsDir = os.environ.get('DOCKWRKR_PIDSDIR', '/var/run/docker/dockwrkr')
 
     if not os.path.exists(self.pidsDir):
       try:
-        os.mkdir(self.pidsDir)
+        os.makedirs(self.pidsDir)
       except OSError as err:
         logging.error("Error creating %s directory: %s" % (self.pidsDir, err))
         sys.exit(1)
@@ -683,13 +682,13 @@ Commands:
 
   def writePid(self, container, pid):
     try:
-      if not os.path.isdir(DOCKER_PIDS):
-        os.makedirs(DOCKER_PIDS)
+      if not os.path.isdir(self.pidsDir):
+        os.makedirs(self.pidsDir)
     except Exception as err:
-      logging.warn("WARNING - Could not create DOCKWRKR_PIDDIR %s : %s" % (DOCKER_PIDS, err))
+      logging.warn("WARNING - Could not create DOCKWRKR_PIDSDIR %s : %s" % (self.pidsDir, err))
       return
      
-    pidfile = "%s/%s.pid" % (DOCKER_PIDS, container)
+    pidfile = "%s/%s.pid" % (self.pidsDir, container)
     try:
       with open(pidfile, 'w') as outfile:
         outfile.write("%d" % pid)
@@ -698,7 +697,7 @@ Commands:
 
   def clearPid(self, container):
     try:
-      pidfile = "%s/%s.pid" % (DOCKER_PIDS, container)
+      pidfile = "%s/%s.pid" % (self.pidsDir, container)
       os.remove(pidfile)
     except OSError as err:
       logging.warn("WARNING - Could not remove pidfile '%s': %s " % (pidfile, err))
