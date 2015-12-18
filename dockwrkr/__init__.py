@@ -79,8 +79,12 @@ def main():
 
 class dockwrkr(object):
 
+  options = {}
+  confFile = 'containers.yml'
+  pidsDir = '/var/run/docker/dockwrkr'
+  
   def __init__(self):
-    DOCKER_PIDS = os.environ.get('DOCKWRKR_PIDDIR', '/var/run/docker/dockwrkr')
+
     return
 
   def setupLogging(self):
@@ -88,15 +92,22 @@ class dockwrkr(object):
     logging.basicConfig(format='%(message)s', level=log_level)
 
   def setupEnv(self): 
-    return
-    if not os.path.exists(DOCKER_PIDS):
+
+    if self.options.configFile:
+      self.confFile = self.options.configFile
+    else:
+      self.confFile = os.environ.get('DOCKWRKR_CONF', 'containers.yml')
+
+    self.pidsDir = os.environ.get('DOCKWRKR_PIDDIR', '/var/run/docker/dockwrkr')
+
+    if not os.path.exists(self.pidsDir):
       try:
-        os.mkdir(DOCKER_PIDS)
+        os.mkdir(self.pidsDir)
       except OSError as err:
-        logging.error("Error creating %s directory: %s" % (DOCKER_PIDS, err))
+        logging.error("Error creating %s directory: %s" % (self.pidsDir, err))
         sys.exit(1)
-    elif not os.path.isdir(DOCKER_PIDS):
-      logging.error("%s is a file not a directory!" % (DOCKER_PIDS))
+    elif not os.path.isdir(self.pidsDir):
+      logging.error("%s is a file not a directory!" % (self.pidsDir))
       sys.exit(1)
     
   def getShellOptions(self):
@@ -190,13 +201,7 @@ Commands:
 
   def readConfig(self):
     try:
-      cfile = 'containers.yml'
-      if self.options.configFile:
-        cfile = self.options.configFile
-      else:
-        cfile = os.environ.get('DOCKWRKR_CONF', 'containers.yml')
-
-      stream = open(cfile, "r")
+      stream = open(self.confFile, "r")
       self.config = yaml.load(stream)
     except Exception as err:
       self.exitWithHelp("Error reading config file %s:" % err)
