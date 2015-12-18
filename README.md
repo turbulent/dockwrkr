@@ -105,7 +105,7 @@ OK - lxc 'cron' has been started. (pid: 19969)
 
 ## stats
 
-The program will fetch the running docker-compose services and their associated containers and launch a "docker stats" stream in your terminal.
+The program will fetch the running docker containers and launch a "docker stats" stream in your terminal.
 ```
 #host# dockwrkr stats -a
 CONTAINER           CPU %               MEM USAGE/LIMIT       MEM %               NET I/O
