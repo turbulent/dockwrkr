@@ -4,13 +4,12 @@ import os.path
 import logging
 import re
 import yaml
+import arrow
 
 from optparse import OptionParser
 from pprint import pprint
 from datetime import datetime
 from subprocess import Popen, check_output, CalledProcessError
-
-DOCKER = 'docker'
 
 DOCKER_LIST_OPTIONS = [
   'add-host',
@@ -86,18 +85,18 @@ DOCKER_BOOL_OPTIONS = [
   'sig-proxy',
 ]
 
-def main():
+
+def cli():
   dw = dockwrkr()
   dw.handleCmdLine()
 
 class dockwrkr(object):
 
-  options = {}
-  confFile = 'containers.yml'
-  pidsDir = '/var/run/docker/dockwrkr'
-  
   def __init__(self):
-
+    self.options = {}
+    self.confFile = 'containers.yml'
+    self.dockerClient = 'docker'
+    self.pidsDir = None
     return
 
   def setupLogging(self):
@@ -105,24 +104,15 @@ class dockwrkr(object):
     logging.basicConfig(format='%(message)s', level=log_level)
 
   def setupEnv(self): 
-
+    if os.environ.get('DOCKWRKR_CONF'):
+      self.confFile = os.environ.get('DOCKWRKR_CONF')
+    if os.environ.get('DOCKWRKR_DOCKER'):
+      self.dockerClient = os.environ.get('DOCKWRKR_DOCKER')
+    if os.environ.get('DOCKWRKR_PIDSDIR'):
+      self.pidsDir = os.environ.get('DOCKWRKR_PIDSDIR')
     if self.options.configFile:
       self.confFile = self.options.configFile
-    else:
-      self.confFile = os.environ.get('DOCKWRKR_CONF', 'containers.yml')
 
-    self.pidsDir = os.environ.get('DOCKWRKR_PIDSDIR', '/var/run/docker/dockwrkr')
-
-    if not os.path.exists(self.pidsDir):
-      try:
-        os.makedirs(self.pidsDir)
-      except OSError as err:
-        logging.error("Error creating %s directory: %s" % (self.pidsDir, err))
-        sys.exit(1)
-    elif not os.path.isdir(self.pidsDir):
-      logging.error("%s is a file not a directory!" % (self.pidsDir))
-      sys.exit(1)
-    
   def getShellOptions(self):
     parser = OptionParser(usage="usage: %prog COMMAND [options] [CONTAINER..]")
     parser.add_option("-a", dest="allc", help="Operate on all defined containers", action="store_true", default=False)
@@ -157,7 +147,7 @@ Usage: dockwrkr COMMAND [options] [CONTAINERS..]
 dockwrkr - Docker wrapper.
 
 Options:
-  -f            Alternate config file location. defaults to containers.yml
+  -f    Alternate config file location. defaults to containers.yml
   -a		Operate on all defined containers.
   -d		Activate debugging logs
   -t		Allocate a pseudo-TTY
@@ -206,7 +196,7 @@ Commands:
       sys.exit("Unknown command: %s : %s" % (self.command, err))
 
     try:
-      commandCallback()
+      return commandCallback()
     except Exception as err:
       logging.error(traceback.format_exc())
       sys.exit("Error running command %s: %s" % (self.command, err))
@@ -214,6 +204,7 @@ Commands:
 
   def readConfig(self):
     try:
+      logging.debug("Reading config file: %s" % self.confFile)
       stream = open(self.confFile, "r")
       self.config = yaml.load(stream)
       self.config = {} if not self.config else self.config
@@ -487,10 +478,11 @@ Commands:
 
     row_format = "%-18s %-14s %-8s %-14s %-20s %s"
     logging.info( row_format % ( 'NAME', 'CONTAINER', 'PID', 'IP', 'UPTIME', 'EXIT' ) )
-    
+   
     for container in [ x for x in allc if x in containers ]:
       if container in statuses:
         status = statuses[container]
+        logging.debug("%s" % status)
         logging.info( row_format % ( 
           container, 
           status['cid'] if status['cid'] else "-", 
@@ -621,7 +613,7 @@ Commands:
       sys.exit("No containers currently exists.")
  
     try:
-      cmd = [DOCKER, 'stats']
+      cmd = [self.dockerClient,  'stats']
       cmd.extend(exists_lxc)
       proc = Popen(cmd, shell=False)
       proc.communicate()
@@ -681,8 +673,8 @@ Commands:
       return "Exit code %d: %s" % (errcode, err)
       
   def lxcExists(self, container):
-    #cmd = "%s inspect --format=\"{{.State.Running}}\" %s 2> /dev/null" % (DOCKER, container)
-    cmd = "%s ps -q -a --filter 'name=%s'" % (DOCKER, container)
+    #cmd = "%s inspect --format=\"{{.State.Running}}\" %s 2> /dev/null" % (self.dockerClient, container)
+    cmd = "%s ps -q -a --filter 'label=ca.turbulent.dockwrkr.name=%s'" % (self.dockerClient, container)
     (rcode, out) = self.runSysCommand(cmd)
     if rcode is not 0:
       return 0
@@ -691,14 +683,14 @@ Commands:
     return 1
 
   def lxcRunning(self, container):
-    cmd = "%s inspect --format=\"{{.State.Running}}\" %s 2> /dev/null" % (DOCKER, container)
+    cmd = "%s inspect --format=\"{{.State.Running}}\" %s 2> /dev/null" % (self.dockerClient, container)
     (rcode, out) = self.runSysCommand(cmd)
     if rcode == 0 and out == "true":
       return 1
     return 0
 
   def lxcGhosted(self, container):
-    cmd = "%s inspect --format=\"{{ .State.Ghost }}\" %s" % (DOCKER, container)
+    cmd = "%s inspect --format=\"{{ .State.Ghost }}\" %s" % (self.dockerClient, container)
     (rcode, out) = self.runSysCommand(cmd)
     if out == "true":
       logging.info("WARNING - lxc '%s' is ghosted." % container)
@@ -710,7 +702,7 @@ Commands:
     if not len(containers):
       return statuses
 
-    cmd = "%s inspect -f '{{.Name}}|{{.Id}}|{{.Config.Image}}|{{.NetworkSettings.IPAddress}}|{{range $p, $conf := .NetworkSettings.Ports}}{{if $conf}}{{$p}}->{{(index $conf 0).HostPort}}{{end}} {{end}}|{{.State.Pid}}|{{.State.StartedAt}}|{{.State.Running}}|{{.State.ExitCode}}|{{.State.Error}}' %s" % (DOCKER, ' '.join(containers))
+    cmd = "%s inspect -f '{{.Name}}|{{.Id}}|{{.Config.Image}}|{{.NetworkSettings.IPAddress}}|{{range $p, $conf := .NetworkSettings.Ports}}{{if $conf}}{{$p}}->{{(index $conf 0).HostPort}}{{end}} {{end}}|{{.State.Pid}}|{{.State.StartedAt}}|{{.State.Running}}|{{.State.ExitCode}}|{{.State.Error}}' %s" % (self.dockerClient, ' '.join(containers))
     (rcode, out) = self.runSysCommand(cmd)
     logging.debug(out)
     for line in out.split('\n'):
@@ -734,7 +726,8 @@ Commands:
       status['ip'] = ip
       status['pid'] = int(float(pid)) if pid else None
       status['ports'] = ports
-      status['startedat'] = datetime(*map(int, re.split('[^\d]', startedat)[:-2])) if startedat else None
+      status['startedat'] = arrow.get(startedat).timestamp if startedat else None
+      #datetime(*map(int, re.split('[^\d]', startedat)[:-2])) if startedat else None
       status['running'] = True if running == 'true' else False
       status['exitcode'] = int(float(exitcode)) if exitcode else None
       status['exiterr'] = exiterr
@@ -742,6 +735,8 @@ Commands:
     return statuses
 
   def writePid(self, container, pid):
+    if not self.pidsDir:
+      return
     try:
       if not os.path.isdir(self.pidsDir):
         os.makedirs(self.pidsDir)
@@ -757,6 +752,9 @@ Commands:
       logging.warn("WARNING - Could not write to pidfile '%s': %s " % (pidfile, err))
 
   def clearPid(self, container):
+    if not self.pidsDir:
+      return
+
     try:
       pidfile = "%s/%s.pid" % (self.pidsDir, container)
       os.remove(pidfile)
@@ -771,7 +769,7 @@ Commands:
       raise DockerCmdError("Failed to create container %s" % (container), rcode, out)
 
   def lxcStart(self, container):
-    cmd = "%s start %s" % (DOCKER, container)
+    cmd = "%s start %s" % (self.dockerClient, container)
     (rcode, out) = self.runSysCommand(cmd)
     if rcode is not 0:
       logging.debug(out)
@@ -781,7 +779,7 @@ Commands:
     return pid
 
   def lxcPid(self, container):
-    cmd = "%s inspect --format '{{.State.Pid}}' %s" % (DOCKER, container)
+    cmd = "%s inspect --format '{{.State.Pid}}' %s" % (self.dockerClient, container)
     (rcode, out) = self.runSysCommand(cmd)
     if rcode is not 0:
       logging.debug(out)
@@ -790,7 +788,7 @@ Commands:
     return pid
  
   def lxcStop(self, container):
-    cmd = "%s stop %s" % (DOCKER, container)
+    cmd = "%s stop %s" % (self.dockerClient, container)
     (rcode, out) = self.runSysCommand(cmd)
     self.clearPid(container)
     if rcode is not 0:
@@ -798,7 +796,7 @@ Commands:
       raise DockerCmdError("Failed to stop container %s" % (container), rcode, out)
 
   def lxcRemove(self, container):
-    cmd = "%s rm %s" % (DOCKER, container)
+    cmd = "%s rm %s" % (self.dockerClient, container)
     (rcode, out) = self.runSysCommand(cmd)
     if rcode is not 0:
       logging.debug(out)
@@ -807,7 +805,7 @@ Commands:
   def lxcPull(self, container):
     image = self.config[container]['image']
     try:
-      cmd = [DOCKER, 'pull', image]
+      cmd = [self.dockerClient, 'pull', image]
       proc = Popen(cmd, shell=False)
       proc.communicate()
       if proc.returncode:
@@ -872,7 +870,7 @@ Commands:
       extra_flags = self.ensurelist(cconf['extra-flags'])
       del cconf['extra-flags']
  
-    cmd = ["%s create" % DOCKER]
+    cmd = ["%s create" % self.dockerClient]
 
     cmd_opt = []
     cmd_list = []
@@ -923,6 +921,9 @@ Commands:
       cmd.append(part)
     for extra in extra_flags:
       cmd.append(extra)
+    
+    cmd.append("--label ca.turbulent.dockwrkr.name=\"%s\"" % container)
+    cmd.append("--label ca.turbulent.dockwrkr.managed=1")
 
     cmd.append(image)
 
@@ -980,7 +981,6 @@ Commands:
     if day_diff < 365:
       return str(day_diff / 30) + " months ago"
     return str(day_diff / 365) + " years ago" 
-
 
 
 class DockerCmdError(Exception):
