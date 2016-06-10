@@ -18,13 +18,16 @@ DOCKER_LIST_OPTIONS = [
   'cap-drop',
   'device',
   'dns',
+  'dns-opt',
   'dns-search',
   'env',
   'env-file',
   'expose',
+  'group-add',
   'label',
   'label-file',
   'link',
+  'log-opt',
   'lxc-conf',
   'publish',
   'security-opt',
@@ -46,26 +49,37 @@ DOCKER_MAP_OPTIONS = [
 ]
   
 DOCKER_SINGLE_OPTIONS = [
+  'blkio-weight',
   'cpu-shares',
+  'cpu-period',
+  'cpu-quota',
   'cpuset-cpus',
+  'cpuset-mems',
   'cgroup-parent',
   'cidfile',
   'entrypoint',
   'hostname',
   'ipc',
+  'kernel-memory',
   'log-driver',
   'mac-address',
   'memory',
+  'memory-reservation'
   'memory-swap',
+  'memory-swapiness',
   'name',
   'net',
   'pid',
   'restart',
   'user',
+  'uts',
+  'stop-signal',
   'workdir',
 ]
 
 DOCKER_BOOL_OPTIONS = [
+  'disable-content-trust',
+  'oom-kill-disable',
   'publish-all',
   'privileged',
   'read-only',
@@ -160,7 +174,7 @@ Commands:
 
   exec          Exec a command on a container
   status        Output container status
-  stats         Output live docker container stats
+  stats         Output live container stats
  
   * Override the configuration file with the DOCKWRKR_CONF environment var.
 """
@@ -202,6 +216,7 @@ Commands:
     try:
       stream = open(self.confFile, "r")
       self.config = yaml.load(stream)
+      self.config = {} if not self.config else self.config
     except Exception as err:
       self.exitWithHelp("Error reading config file %s:" % err)
 
@@ -310,6 +325,11 @@ Commands:
     allc = self.getDefinedContainers()
     containers = allc if self.options.allc else self.args[1:]
 
+    invalids = [ x for x in containers if x not in allc ]
+    if len(invalids) > 0:
+      logging.error("FATAL - Some containers specified were not found: %s" % ' '.join(invalids))
+      sys.exit(1)
+
     exitcode = 0
     for container in [ x for x in allc if x in containers ]:
       if container not in self.config:
@@ -343,6 +363,11 @@ Commands:
     allc = self.getDefinedContainers()
     containers = allc if self.options.allc else self.args[1:]
 
+    invalids = [ x for x in containers if x not in allc ]
+    if len(invalids) > 0:
+      logging.error("FATAL - Some containers specified were not found: %s" % ' '.join(invalids))
+      sys.exit(1)
+
     exitcode = 0
     for container in [ x for x in allc if x in containers ]:
       if container not in self.config:
@@ -375,6 +400,11 @@ Commands:
 
     allc = self.getDefinedContainers()
     containers = allc if self.options.allc else self.args[1:]
+
+    invalids = [ x for x in containers if x not in allc ]
+    if len(invalids) > 0:
+      logging.error("FATAL - Some containers specified were not found: %s" % ' '.join(invalids))
+      sys.exit(1)
 
     exitcode = 0
     for container in [ x for x in allc if x in containers ]:
@@ -416,6 +446,11 @@ Commands:
     allc = self.getDefinedContainers()
     containers = allc if self.options.allc else self.args[1:]
 
+    invalids = [ x for x in containers if x not in allc ]
+    if len(invalids) > 0:
+      logging.error("FATAL - Some containers specified were not found: %s" % ' '.join(invalids))
+      sys.exit(1)
+
     exitcode = 0
     for container in [ x for x in allc if x in containers ]:
       if container not in self.config:
@@ -438,6 +473,11 @@ Commands:
 
     allc = self.getDefinedContainers()
     containers = allc if self.options.allc else self.args[1:]
+
+    invalids = [ x for x in containers if x not in allc ]
+    if len(invalids) > 0:
+      logging.error("FATAL - Some containers specified were not found: %s" % ' '.join(invalids))
+      sys.exit(1)
 
     exists_lxc = []
     for container in [ x for x in allc if x in containers and self.lxcExists(x) ]:
@@ -468,6 +508,11 @@ Commands:
 
     allc = self.getDefinedContainers()
     containers = allc if self.options.allc else self.args[1:]
+
+    invalids = [ x for x in containers if x not in allc ]
+    if len(invalids) > 0:
+      logging.error("FATAL - Some containers specified were not found: %s" % ' '.join(invalids))
+      sys.exit(1)
 
     exitcode = 0
     for container in [ x for x in allc if x in containers ]:
@@ -507,6 +552,11 @@ Commands:
 
     allc = self.getDefinedContainers()
     containers = allc if self.options.allc else self.args[1:]
+
+    invalids = [ x for x in containers if x not in allc ]
+    if len(invalids) > 0:
+      logging.error("FATAL - Some containers specified were not found: %s" % ' '.join(invalids))
+      sys.exit(1)
 
     exitcode = 0
     for container in [ x for x in allc if x in containers ]:
@@ -648,7 +698,7 @@ Commands:
     return 0
 
   def lxcGhosted(self, container):
-    cmd = "docker inspect --format=\"{{ .State.Ghost }}\" %s" % container
+    cmd = "%s inspect --format=\"{{ .State.Ghost }}\" %s" % (DOCKER, container)
     (rcode, out) = self.runSysCommand(cmd)
     if out == "true":
       logging.info("WARNING - lxc '%s' is ghosted." % container)
@@ -660,11 +710,22 @@ Commands:
     if not len(containers):
       return statuses
 
-    cmd = "docker inspect -f '{{.Name}}|{{.Id}}|{{.Config.Image}}|{{.NetworkSettings.IPAddress}}|{{range $p, $conf := .NetworkSettings.Ports}}{{if $conf}}{{$p}}->{{(index $conf 0).HostPort}}{{end}} {{end}}|{{.State.Pid}}|{{.State.StartedAt}}|{{.State.Running}}|{{.State.ExitCode}}|{{.State.Error}}' %s" % ' '.join(containers)
+    cmd = "%s inspect -f '{{.Name}}|{{.Id}}|{{.Config.Image}}|{{.NetworkSettings.IPAddress}}|{{range $p, $conf := .NetworkSettings.Ports}}{{if $conf}}{{$p}}->{{(index $conf 0).HostPort}}{{end}} {{end}}|{{.State.Pid}}|{{.State.StartedAt}}|{{.State.Running}}|{{.State.ExitCode}}|{{.State.Error}}' %s" % (DOCKER, ' '.join(containers))
     (rcode, out) = self.runSysCommand(cmd)
     logging.debug(out)
     for line in out.split('\n'):
-      (name,cid,image,ip, ports,pid, startedat, running, exitcode, exiterr) = line.split('|')
+      parts = line.split('|')
+      name = parts[0]
+      cid = parts[1]
+      image = parts[2]
+      ip = parts[3]
+      ports = parts[4]
+      pid = parts[5]
+      startedat = parts[6]
+      running = parts[7]
+      exitcode = parts[8]
+      exiterr = parts[9]
+ 
       name = name[1:]
       status = {}
       status['name'] = name
@@ -729,7 +790,7 @@ Commands:
     return pid
  
   def lxcStop(self, container):
-    cmd = "docker stop %s" % container
+    cmd = "%s stop %s" % (DOCKER, container)
     (rcode, out) = self.runSysCommand(cmd)
     self.clearPid(container)
     if rcode is not 0:
@@ -737,7 +798,7 @@ Commands:
       raise DockerCmdError("Failed to stop container %s" % (container), rcode, out)
 
   def lxcRemove(self, container):
-    cmd = "docker rm %s" % container
+    cmd = "%s rm %s" % (DOCKER, container)
     (rcode, out) = self.runSysCommand(cmd)
     if rcode is not 0:
       logging.debug(out)
@@ -811,7 +872,7 @@ Commands:
       extra_flags = self.ensurelist(cconf['extra-flags'])
       del cconf['extra-flags']
  
-    cmd = ["docker create"]
+    cmd = ["%s create" % DOCKER]
 
     cmd_opt = []
     cmd_list = []
