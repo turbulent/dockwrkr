@@ -120,6 +120,7 @@ class dockwrkr(object):
     parser.add_option("-d", dest="debug", help="Activate debugging output", default=False, action="store_true")
     parser.add_option("-t", dest="term", help="Allocate a pseudo-TTY", default=False, action="store_true")
     parser.add_option("-i", dest="interactive", help="Keep STDIN open even if not attached", default=False, action="store_true")
+    parser.add_option("-y", dest="assume_yes", help="Assume Yes", default=False, action="store_true")
 
     sysargs = sys.argv[1:]
     parse = []
@@ -152,12 +153,14 @@ Options:
   -d		Activate debugging logs
   -t		Allocate a pseudo-TTY
   -i		Keep STDIN open even if not attached
+  -y 		Assume Yes to all questions
 
 Commands:
   create        Create the specified container(s)
   start         Start the specified container(s)
   stop          Stop the specified container(s)
   remove        Remove the specified container(s). Stop if needed.
+  reset		Stop and remove all managed containers.
 
   restart       Stop and then Start a container.
   recreate      Remove and then Start a container.
@@ -183,7 +186,6 @@ Commands:
     self.setupLogging()
     self.setupEnv()
 
-    self.readConfig()
 
     if not len(self.args) > 0:
       self.exitWithHelp("Please provide a command.")
@@ -220,6 +222,7 @@ Commands:
       'start': self.cmdStart,
       'stop': self.cmdStop,
       'remove': self.cmdRemove,
+      'reset': self.cmdReset,
       'restart': self.cmdRestart,
       'recreate': self.cmdRecreate,
       'pull': self.cmdPull,
@@ -281,6 +284,8 @@ Commands:
   ### Commands ###
 
   def cmdCreate(self):
+    self.readConfig()
+
     if not len(self.args) >= 2 and not self.options.allc:
       self.exitWithHelp("Please provide a container to start or use -a for all containers.")
 
@@ -310,6 +315,9 @@ Commands:
 
  
   def cmdStart(self):
+
+    self.readConfig()
+
     if not len(self.args) >= 2 and not self.options.allc:
       self.exitWithHelp("Please provide a container to start or use -a for all containers.")
 
@@ -348,6 +356,9 @@ Commands:
  
 
   def cmdStop(self):
+
+    self.readConfig()
+
     if not len(self.args) >= 2 and not self.options.allc:
       self.exitWithHelp("Please provide a container to start or use -a for all containers.")
 
@@ -386,6 +397,9 @@ Commands:
     sys.exit(exitcode)
 
   def cmdRemove(self):
+ 
+    self.readConfig()
+
     if not len(self.args) >= 2 and not self.options.allc:
       self.exitWithHelp("Please provide a container to remove or use -a for all containers.")
 
@@ -430,7 +444,48 @@ Commands:
 
     sys.exit(exitcode)
 
+  def cmdReset(self):
+
+    if not self.printConfirm("Stop and remove all managed containers?"):
+      logging.info("Aborted by user.")
+      return sys.exit(0)
+
+    containers = self.lxcManaged()
+
+    exitcode = 0
+    for container in containers:
+      if not self.lxcExists(container):
+        logging.info("OK - lxc '%s' does not exist." % container)
+        exitcode = 1
+        continue
+ 
+      if self.lxcRunning(container):
+        try:
+          self.lxcStop(container)
+          logging.info("OK - lxc '%s' has been stopped." % container)
+        except DockerCmdError as err:
+          logging.debug(err.output)
+          logging.debug("Error Code: %d" % err.returncode)
+          logging.error(err)
+          exitcode = err.returncode
+          continue
+
+      if self.lxcExists(container):
+        try:
+          self.lxcRemove(container)
+          logging.info("OK - lxc '%s' has been removed." % container)
+        except DockerCmdError as err:
+          logging.debug(err.output)
+          logging.debug("Error Code: %d" % err.returncode)
+          logging.error(err)
+          exitcode = err.returncode
+
+    sys.exit(exitcode)
+
   def cmdPull(self):
+    
+    self.readConfig()
+
     if not len(self.args) >= 2 and not self.options.allc:
       self.exitWithHelp("Please provide a container to remove or use -a for all containers.")
 
@@ -459,6 +514,9 @@ Commands:
     sys.exit(exitcode)
 
   def cmdStatus(self):
+  
+    self.readConfig()
+
     if not len(self.args) >= 2 and not self.options.allc:
       self.exitWithHelp("Please provide a container to remove or use -a for all containers.")
 
@@ -495,6 +553,9 @@ Commands:
         logging.info( row_format % ( container , '-', '-', '-', '-', '-' ) )
 
   def cmdRestart(self):
+  
+    self.readConfig()
+
     if not len(self.args) >= 2 and not self.options.allc:
       self.exitWithHelp("Please provide a container to restart or use -a for all containers.")
 
@@ -539,6 +600,9 @@ Commands:
     sys.exit(exitcode)
 
   def cmdRecreate(self):
+ 
+    self.readConfig()
+
     if not len(self.args) >= 2 and not self.options.allc:
       self.exitWithHelp("Please provide a container to restart or use -a for all containers.")
 
@@ -599,6 +663,9 @@ Commands:
 
 
   def cmdStats(self):
+ 
+    self.readConfig()
+
     if not len(self.args) >= 2 and not self.options.allc:
       self.exitWithHelp("Please provide a container to remove or use -a for all containers.")
 
@@ -623,6 +690,9 @@ Commands:
       sys.exit(0)
 
   def cmdExec(self):
+
+    self.readConfig()
+
     if not len(self.args) >= 2 and not self.options.allc:
       self.exitWithHelp("Please provide a container to exec on.")
 
@@ -672,6 +742,15 @@ Commands:
     else:
       return "Exit code %d: %s" % (errcode, err)
       
+  def lxcManaged(self):
+    cmd = "%s ps -q -a --filter 'label=ca.turbulent.dockwrkr.managed=1' --format '{{.Label \"ca.turbulent.dockwrkr.name\"}}'" % (self.dockerClient)
+    (rcode, out) = self.runSysCommand(cmd)
+    if rcode != 0:
+      logging.debug(out)
+      raise DockerCmdError("Failed to fetch managed containers", rcode, out)
+    logging.debug("OUTPUT: '%s'" % out)
+    return out.strip().splitlines()
+
   def lxcExists(self, container):
     #cmd = "%s inspect --format=\"{{.State.Running}}\" %s 2> /dev/null" % (self.dockerClient, container)
     cmd = "%s ps -q -a --filter 'label=ca.turbulent.dockwrkr.name=%s'" % (self.dockerClient, container)
