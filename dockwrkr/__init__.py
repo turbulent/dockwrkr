@@ -452,6 +452,8 @@ Commands:
 
     containers = self.lxcManaged()
 
+    logging.info("Stopping and removing all dockwrkr managed containers")
+
     exitcode = 0
     for container in containers:
       if not self.lxcExists(container):
