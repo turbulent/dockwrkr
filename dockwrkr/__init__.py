@@ -5,6 +5,10 @@ import logging
 import re
 import yaml
 import arrow
+try:  # py3
+    from shlex import quote
+except ImportError:  # py2
+    from pipes import quote
 
 from optparse import OptionParser
 from pprint import pprint
@@ -106,6 +110,9 @@ class dockwrkr(object):
   def setupEnv(self): 
     if os.environ.get('DOCKWRKR_CONF'):
       self.confFile = os.environ.get('DOCKWRKR_CONF')
+    else:
+      self.confFile = self.walkUpForFile(os.getcwd(), 'containers.yml')
+
     if os.environ.get('DOCKWRKR_DOCKER'):
       self.dockerClient = os.environ.get('DOCKWRKR_DOCKER')
     if os.environ.get('DOCKWRKR_PIDSDIR'):
@@ -147,7 +154,7 @@ Usage: dockwrkr COMMAND [options] [CONTAINERS..]
 dockwrkr - Docker wrapper.
 
 Options:
-  -f    Alternate config file location. defaults to containers.yml
+  -f    Alternate config file location. 
   -a		Operate on all defined containers.
   -d		Activate debugging logs
   -t		Allocate a pseudo-TTY
@@ -165,8 +172,12 @@ Commands:
   exec          Exec a command on a container
   status        Output container status
   stats         Output live container stats
- 
-  * Override the configuration file with the DOCKWRKR_CONF environment var.
+
+Environment variables:
+  
+  DOCKWRKR_CONF      Alternate config file location, defaults to first containers.yml file in tree.
+  DOCKWRKR_PIDSDIR   Path where dockwrkr will store container pids.
+  DOCKWRKR_DOCKER    Path to the docker client binary. Defaults to 'docker'
 """
     return usage
 
@@ -263,17 +274,16 @@ Commands:
       return [ x for x in (v if isinstance(v, (list, tuple)) else [v]) ]
     else:
       return []
-  
-  def quotePath(self, path):
-    return self.quote( os.path.abspath(path) )
-    
+ 
+  def sanitizeLocalPath(self, path):
+    if not os.path.isabs(path):
+      path = os.path.normpath(path)
+      basedir = os.path.dirname(self.confFile)
+      path = os.path.join(basedir, path)
+    return os.path.abspath(os.path.realpath(path))
+ 
   def quote(self,string):
-    subject = str(string)
-    if re.match(r'^.*["]+.*$', subject):
-      return '"' + subject.replace('"','\\"') + '"'
-    elif re.match(r"^.*[\s'&]+.*$", subject):
-      return '"' + subject + '"'
-    return '"' + subject + '"'
+    return quote(string)
 
   def help(self):
     self.exitWithHelp(" ")
@@ -673,8 +683,8 @@ Commands:
       return "Exit code %d: %s" % (errcode, err)
       
   def lxcExists(self, container):
-    #cmd = "%s inspect --format=\"{{.State.Running}}\" %s 2> /dev/null" % (self.dockerClient, container)
-    cmd = "%s ps -q -a --filter 'label=ca.turbulent.dockwrkr.name=%s'" % (self.dockerClient, container)
+    #cmd = "%s inspect --format=\"{{.State.Running}}\" %s 2> /dev/null" % (self.dockerClient, quote(container))
+    cmd = "%s ps -q -a --filter \"label=ca.turbulent.dockwrkr.name=%s\"" % (self.dockerClient, quote(container))
     (rcode, out) = self.runSysCommand(cmd)
     if rcode is not 0:
       return 0
@@ -889,9 +899,8 @@ Commands:
         for ck in self.ensurelist(confval):
           if ck.find(':'):
             (path,sep,path_map) = ck.partition(':')
-            if path[:2] == './':
-              path = self.quotePath(path)
-            cmd_map.append("--%s=%s:%s" % (confkey, path, path_map))
+            path = self.sanitizeLocalPath(path)
+            cmd_map.append("--%s=%s:%s" % (confkey, quote(path), quote(path_map)))
         continue
       if confkey in DOCKER_SINGLE_OPTIONS:
         cmd_opt.append("--%s=%s" % (confkey, self.quote(confval)))
@@ -981,6 +990,26 @@ Commands:
     if day_diff < 365:
       return str(day_diff / 30) + " months ago"
     return str(day_diff / 365) + " years ago" 
+
+
+  def walkUpForFile(self, root, findfile):
+    lastRoot = root
+    fileLocation = None
+    while fileLocation is None and root:
+      pruned = False
+      for root, dirs, files in os.walk(root):
+        if not pruned:
+          try:
+            del dirs[dirs.index(os.path.basename(lastRoot))]
+            pruned = True
+          except ValueError:
+           pass
+        if findfile in files:
+          fileLocation = os.path.join(root, findfile)
+          return fileLocation
+      lastRoot = root
+      root = os.path.dirname(lastRoot)
+
 
 
 class DockerCmdError(Exception):
