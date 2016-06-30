@@ -284,9 +284,15 @@ Environment variables:
       basedir = os.path.dirname(self.confFile)
       path = os.path.join(basedir, path)
     return os.path.abspath(os.path.realpath(path))
+
  
   def quote(self,string):
-    return quote(string)
+    subject = str(string)
+    if re.match(r'^.*["]+.*$', subject):
+      return '"' + subject.replace('"','\\"') + '"'
+    elif re.match(r"^.*[\s'&]+.*$", subject):
+      return '"' + subject + '"'
+    return '"' + subject + '"'
 
   def help(self):
     self.exitWithHelp(" ")
