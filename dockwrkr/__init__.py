@@ -287,12 +287,7 @@ Environment variables:
 
  
   def quote(self,string):
-    subject = str(string)
-    if re.match(r'^.*["]+.*$', subject):
-      return '"' + subject.replace('"','\\"') + '"'
-    elif re.match(r"^.*[\s'&]+.*$", subject):
-      return '"' + subject + '"'
-    return '"' + subject + '"'
+    return quote(str(string))
 
   def help(self):
     self.exitWithHelp(" ")
