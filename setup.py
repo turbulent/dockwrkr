@@ -17,6 +17,6 @@ setup(name='dockwrkr',
       packages=['dockwrkr'],
       entry_points={
         'console_scripts': [
-          'dockwrkr = dockwrkr:cli',
+          'dockwrkr = dockwrkr.cli:cli',
         ],
       })
