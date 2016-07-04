@@ -5,10 +5,10 @@ from dockwrkr.utils import (ensureList, expandLocalPath, safeQuote)
 from dockwrkr.exceptions import ShellCommandError, DockerError
 import arrow
 
-
 logger = logging.getLogger(__name__)
 
 DOCKWRKR_LABEL_DOMAIN='ca.turbulent.dockwrkr'
+DOCKER_STOP_TIME = 10
 
 DOCKER_LIST_OPTIONS = [
   'add-host',
@@ -85,16 +85,11 @@ DOCKER_BOOL_OPTIONS = [
   'sig-proxy',
 ]
 
-
-
 def dockerClient(cmd, params=""):
-  '''
-  Invoke the VirtualBoxManager
-  '''
   return assertDockerVersion().then(defer(dockerCommand, cmd, params))
 
-def dockerCommand(cmd, params=""):
-  return Shell.procCommand("%s %s %s" % ("docker", cmd, params), shell=False) \
+def dockerCommand(cmd, params="", shell=False, stream=False, cwd=None):
+  return Shell.streamCommand("%s %s %s" % ("docker", cmd, params), shell=shell, cwd=cwd, stream=stream) \
     .catch(onDockerError)
 
 def onDockerError(err):
@@ -151,8 +146,8 @@ def readContainerPid(container):
   return dockerCommand("inspect", inspect) \
     .bind(lambda r: OK(int(float(r.out.strip()))))
 
-def create(container, config):
-  params = readCreateParameters(container, config) 
+def create(container, config, basePath=None):
+  params = readCreateParameters(container, config, basePath=basePath) 
   if params.isFail():
     return params
   return dockerCommand("create", params.getOK())
@@ -171,9 +166,9 @@ def remove(container, force=False):
   return dockerCommand("rm", params)
 
 def pull(image):
-  return dockerCommand("pull", image)
+  return dockerCommand("pull", image, stream=True)
  
-def readCreateParameters(container, config):
+def readCreateParameters(container, config, basePath=None):
 
   cconf = config.copy()
 
@@ -212,7 +207,7 @@ def readCreateParameters(container, config):
       for ck in ensureList(confval):
         if ck.find(':'):
           (path,sep,path_map) = ck.partition(':')
-          path = expandLocalPath(path)
+          path = expandLocalPath(path, basePath=basePath)
           cmd_map.append("--%s=%s:%s" % (confkey, safeQuote(path), safeQuote(path_map)))
       continue
     if confkey in DOCKER_SINGLE_OPTIONS:
@@ -265,11 +260,24 @@ def readCreateParameters(container, config):
 def parseContainerList(containers):
   return OK(containers['stdout'].strip().splitlines())
 
-def parseContainerStatus(inspect):
-  logger.debug(inspect)
-  statuses = {}
-  for line in inspect['stdout'].strip().splitlines():
+class ContainerStatus(object):
+  def __init__(self, name):
+    self.name = name
+    self.cid = None
+    self.image = None
+    self.pid = None
+    self.ip = None
+    self.ports = None
+    self.startedat = None
+    self.running = None
+    self.exitcode = None
+    self.exiterr = None
+
+  @staticmethod
+  def fromStatusLine(line):
     parts = line.split('|')
+    parts += [None] * (10 - len(parts))
+
     name = parts[0]
     cid = parts[1]
     image = parts[2]
@@ -282,25 +290,37 @@ def parseContainerStatus(inspect):
     exiterr = parts[9]
 
     name = name[1:]
-    status = {}
-    status['name'] = name
-    status['cid'] = cid[0:12] if cid else None
-    status['image'] = image
-    status['ip'] = ip
-    status['pid'] = int(float(pid)) if pid else None
-    status['ports'] = ports
-    status['startedat'] = arrow.get(startedat).timestamp if startedat else None
-    status['running'] = True if running == 'true' else False
-    status['exitcode'] = int(float(exitcode)) if exitcode else None
-    status['exiterr'] = exiterr
-    statuses[name] = status
+    status = ContainerStatus(name)
+    status.cid = cid[0:12] if cid else None
+    status.image = image
+    status.ip = ip
+    status.pid = int(float(pid)) if pid else None
+    status.ports = ports
+    status.startedat = arrow.get(startedat).timestamp if startedat else None
+    status.running = True if running == 'true' else False
+    status.exitcode = int(float(exitcode)) if exitcode else None
+    status.exiterr = exiterr
+    return status
+
+  def getCol(self, field):
+    if hasattr(self, field):
+      v = getattr(self, field)
+      return v if v is not None else "-"
+    else:
+      return "-"
+     
+def parseContainerStatus(inspect):
+  statuses = {}
+  for line in inspect['stdout'].strip().splitlines():
+    status = ContainerStatus.fromStatusLine(line)
+    statuses[status.name] = status
   return OK(statuses)
 
 #-- Transformations
 
 def getErrorLabel(status):
-  errcode = status['exitcode']
-  err = status['exiterr']
+  errcode = status.exitcode
+  err = status.exiterr
   if errcode == -1:
     return "%s" % err
   elif errcode == 1:
@@ -315,8 +335,10 @@ def getErrorLabel(status):
     return "SIGTERM received"
   elif errcode == 0:
     return "-"
+  elif errcode is not None or err is not None:
+    return "Exit code %s: %s" % (errcode, err)
   else:
-    return "Exit code %d: %s" % (errcode, err)
+    return "-"
 
 def __listToBool(l):
   return len(l) > 0

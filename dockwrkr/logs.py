@@ -88,7 +88,7 @@ def dexception(msg, *args, **kwargs):
 def dlog(level, msg, *args, **kwargs):
   if args:
     msg = msg % args
-  def deferredLog(data, *args, **kwargs):
+  def deferredLog(data=None, *args, **kwargs):
     logger.log(level, msg)
     return OK(data)
   return deferredLog

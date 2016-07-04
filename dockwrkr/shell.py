@@ -67,7 +67,7 @@ class Shell(object):
       return Fail(UserInterruptError())
 
   @staticmethod
-  def streamCommand(cmd, cwd=None, shell=False):
+  def streamCommand(cmd, cwd=None, shell=False, stream=False):
     try:
       logger.debug("COMMAND: %s", cmd)
       proc = Popen(shlex.split(cmd), shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
@@ -77,12 +77,14 @@ class Shell(object):
         d = proc.stdout.read(1)
         if d != '':
           stdout += d
+        if stream:
           sys.stdout.write(d)
           sys.stdout.flush()
 
         de = proc.stderr.read(1)
         if de != '':
           stderr += de
+        if stream:
           sys.stderr.write(de)
           sys.stderr.flush()
 
@@ -90,7 +92,7 @@ class Shell(object):
           break
 
       if proc.returncode == 0:
-        return OK({"stdout": stdout, "stderr": stderr})
+        return OK({"code": proc.returncode, "stdout": stdout, "stderr": stderr})
       else:
         return Fail(ShellCommandError(code=proc.returncode, message=stdout, stdout=stdout, stderr=stderr))
     except OSError as err:

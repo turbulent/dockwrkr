@@ -1,10 +1,11 @@
+import os
 import sys
 import logging
 import re
 from dockwrkr.monads import *
 from dockwrkr.logs import *
-from dockwrkr.utils import (readYAML, mergeDict, ensureList)
-from dockwrkr.constants import Actions
+from dockwrkr.exceptions import *
+from dockwrkr.utils import (readYAML, mergeDict, ensureList, dateToAgo, walkUpForFile)
 import dockwrkr.docker as docker
 
 logger = logging.getLogger(__name__)
@@ -37,8 +38,15 @@ class Core(object):
   def loadConfig(self):
     return self.readConfigFile() >> self.setConfig
 
+  def findConfigFile(self):
+    configFile = walkUpForFile(os.getcwd(), "dockwrkr.yml")
+    if not configFile:
+      return Fail(ConfigFileNotFound("Could not locate config file: dockwrkr.yml"))
+    self.configFile = configFile
+    return OK(configFile)
+ 
   def readConfigFile(self):
-    return Try.attempt(readYAML, self.configFile)
+    return self.findConfigFile().bind(lambda f: Try.attempt(readYAML, f))
 
   def setConfig(self, config):
     mergeDict(self.config, config)
@@ -79,8 +87,15 @@ class Core(object):
     node['deps'] = deps
     return node
 
+  def getBasePath(self):
+    return os.path.dirname(self.configFile)
+
   def getContainerConfig(self, container):
     return self.config.get('containers', {}).get(container)
+
+  def getContainerImage(self, container):
+    conf = self.getContainerConfig(container)
+    return conf.get('image', None)
 
   ### Commands ###
 
@@ -89,374 +104,142 @@ class Core(object):
     missing = [x for x in containers if x not in defined]
     ordered = [x for x in defined if x in containers]
     if missing:
-      return Fail(InvalidContainerError("Container '%s' is not defined."))
+      return Fail(InvalidContainerError("Container '%s' not defined." % ' '.join(missing)))
     return OK(ordered)
 
   def start(self, containers=[], all=False):
-    if all:
+    return self.__command(self.__start, containers=containers, all=all)
+
+  def stop(self, containers=[], all=False, time=docker.DOCKER_STOP_TIME):
+    return self.__command(self.__stop, containers=containers, all=all, time=time)
+
+  def remove(self, containers=[], all=False, time=docker.DOCKER_STOP_TIME, force=False):
+    return self.__command(self.__remove, containers=containers, all=all, time=time, force=force)
+
+  def restart(self, containers=[], all=False, time=docker.DOCKER_STOP_TIME):
+    return self.__command(self.__restart, containers=containers, all=all, time=time)
+
+  def status(self, containers=[]):
+    if not containers:
       containers = self.getDefinedContainers()
- 
-    return self.readOrderedContainers(containers) \
+    return self.__readStates(containers) \
+      .bind(self.__status, containers=containers)
+
+  def __status(self, state, containers=[]):
+    table = []
+    for container in containers:
+      if container not in state:
+        status = docker.ContainerStatus(container)
+      else:
+        status = state[container]
+
+      row = [
+        container, 
+        status.getCol('cid'), 
+        status.getCol('pid'), 
+        status.getCol('ip'),
+        dateToAgo(status.startedat) if status.startedat else "-",
+        docker.getErrorLabel(status) if not status.running else "-"
+      ]
+      table.append(row)
+    return OK(table) 
+
+  def reset(self, time=docker.DOCKER_STOP_TIME):
+    managed = docker.readManagedContainers()
+    if managed.isFail():
+      return managed
+
+    return managed \
       .bind(docker.filterExistingContainers) \
       .bind(docker.readContainersStatus) \
+      .bind(self.__remove, containers=managed.getOK(), time=time, force=True)
+
+  def pull(self, containers=[], all=False):
+    if all:
+      containers = self.getDefinedContainers()
+
+    def pullImage(container):
+      image = self.getContainerImage(container)
+      return docker.pull(image).then(dinfo("'%s' (%s) has been pulled." % (container, image)))
+
+    return Try.sequence(map(pullImage, containers))
+
+  def recreate(self, containers=[], all=False, time=docker.DOCKER_STOP_TIME):
+    if all:
+      containers = self.getDefinedContainers()
+    return self.__readStates(containers) \
+      .bind(self.__remove, containers=containers, force=True, time=time) \
+      .then(defer(self.__readStates, containers=containers)) \
       .bind(self.__start, containers=containers)
+   
+  def __command(self, func, containers=[], all=False, *args, **kwargs):
+    if all:
+      containers = self.getDefinedContainers()
+    return self.__readStates(containers) \
+      .bind(func, containers=containers, *args, **kwargs)
+
+  def __readStates(self, containers):
+    return self.readOrderedContainers(containers) \
+      .bind(docker.filterExistingContainers) \
+      .bind(docker.readContainersStatus) 
 
   def __start(self, state, containers=[]):
     ops = []
     for container in containers:
       if container not in state:
-        op = docker.create(container, self.getContainerConfig(container)) \
-          .then(defer(docker.start, container=container))
+        op = docker.create(container, self.getContainerConfig(container), basePath=self.getBasePath()) \
+          .then(defer(docker.start, container=container)) \
+          .then(dinfo("'%s' has been created and started." % container)) 
         ops.append(op)
       else:
-        if not state[container]['running']:
-          ops.append( docker.start(container).bind(dinfo("'%s' has been started." % container)) )
+        if not state[container].running:
+          op = docker.start(container).bind(dinfo("'%s' has been started." % container))
+          ops.append(op)
         else:
           logger.warn("'%s' is already running." % container)
     return Try.sequence(ops)
 
-  def stop(self, containers=[], all=False):
-    if all:
-      containers = self.getDefinedContainers()
-
-    return self.readOrderedContainers(containers) \
-      .bind(docker.filterExistingContainers) \
-      .bind(docker.readContainersStatus) \
-      .bind(self.__stop, containers=containers)
-
-  def __stop(self, state, containers=[]):
+  def __stop(self, state, containers=[], time=docker.DOCKER_STOP_TIME):
     ops = []
     for container in containers:
       if container not in state:
         logger.warn("Container '%s' does not exist." % container)
       else:
-        if state[container]['running']:
-          ops.append( docker.stop(container).bind(dinfo("'%s' has been stopped." % container)) )
+        if state[container].running:
+          ops.append( docker.stop(container, time).bind(dinfo("'%s' has been stopped." % container)) )
         else:
           logger.warn("'%s' is not running." % container)
     return Try.sequence(ops)
 
-  def remove(self, containers=[], all=False):
-    if all:
-      containers = self.getDefinedContainers()
+  def __remove(self, state, containers=[], force=False, time=docker.DOCKER_STOP_TIME):
+    logger.debug("REMOVE %s" % containers)
+    ops = []
+    for container in containers:
+      if container in state:
+        if state[container].running:
+          if not force:
+            logger.error("'%s' is running and 'force' was not specified." % container)
+          else:
+            op = docker.stop(container, time=time) \
+              .then(defer(docker.remove, container=container)) \
+              .bind(dinfo("'%s' has been stopped and removed." % container))
+            ops.append(op)
+        else:    
+          ops.append(docker.remove(container).bind(dinfo("'%s' has been removed." % container)))
+    return Try.sequence(ops)
 
-    return self.readOrderedContainers(containers) \
-      .bind(docker.filterExistingContainers) \
-      .bind(docker.readContainersStatus) \
-      .bind(self.__remove, containers=containers)
-
-  def __remove(self, state, containers=[]):
+  def __restart(self, state, containers=[], time=docker.DOCKER_STOP_TIME):
     ops = []
     for container in containers:
       if container not in state:
-        logger.warn("Container '%s' does not exist." % container)
+        logger.error("'%s' does not exist." % container)
       else:
-        if state[container]['running']:
-          ops.append( docker.stop(container).bind(dinfo("'%s' has been stopped." % container)) )
-        ops.append( docker.remove(container).bind(dinfo("'%s' has been removed." % container)) )
-    return Try.sequence(ops)
+        if state[container].running:
+          op = docker.stop(container, time=time) \
+            .then(defer(docker.start, container=container)) \
+            .bind(dinfo("'%s' has been restarted." % container))
+          ops.append(op)
+        else:
+          ops.append(docker.start(container).bind(dinfo("'%s' has been started." % container)))
 
-#  def cmdReset(self):
-#
-#    if not self.printConfirm("Stop and remove all managed containers?"):
-#      logger.info("Aborted by user.")
-#      return sys.exit(0)
-#
-#    containers = self.lxcManaged()
-#
-#    logger.info("Stopping and removing all dockwrkr managed containers")
-#
-#    exitcode = 0
-#    for container in containers:
-#      if not self.lxcExists(container):
-#        logger.info("OK - lxc '%s' does not exist." % container)
-#        exitcode = 1
-#        continue
-# 
-#      if self.lxcRunning(container):
-#        try:
-#          self.lxcStop(container)
-#          logger.info("OK - lxc '%s' has been stopped." % container)
-#        except DockerCmdError as err:
-#          logger.debug(err.output)
-#          logger.debug("Error Code: %d" % err.returncode)
-#          logger.error(err)
-#          exitcode = err.returncode
-#          continue
-#
-#      if self.lxcExists(container):
-#        try:
-#          self.lxcRemove(container)
-#          logger.info("OK - lxc '%s' has been removed." % container)
-#        except DockerCmdError as err:
-#          logger.debug(err.output)
-#          logger.debug("Error Code: %d" % err.returncode)
-#          logger.error(err)
-#          exitcode = err.returncode
-#
-#    sys.exit(exitcode)
-#
-#  def cmdPull(self):
-#    
-#    self.readConfig()
-#
-#    if not len(self.args) >= 2 and not self.options.allc:
-#      self.exitWithHelp("Please provide a container to pull or use -a for all containers.")
-#
-#    allc = self.getDefinedContainers()
-#    containers = allc if self.options.allc else self.args[1:]
-#
-#    invalids = [ x for x in containers if x not in allc ]
-#    if len(invalids) > 0:
-#      logger.error("FATAL - Some containers specified were not found: %s" % ' '.join(invalids))
-#      sys.exit(1)
-#
-#    exitcode = 0
-#    for container in [ x for x in allc if x in containers ]:
-#      if container not in self.config:
-#        raise Exception("Container %s was not found in %s." % (container, self.options.configFile))
-#      
-#      try:
-#        self.lxcPull(container)
-#        logger.info("OK - lxc '%s' image '%s' has been pulled." % (container, self.config[container]['image']))
-#      except DockerCmdError as err:
-#        logger.debug(err.output)
-#        logger.debug("Error Code: %d" % err.returncode)
-#        logger.error(err)
-#        exitcode = err.returncode
-#
-#    sys.exit(exitcode)
-#
-#  def cmdStatus(self):
-#  
-#    self.readConfig()
-#
-#    if not len(self.args) >= 2 and not self.options.allc:
-#      self.exitWithHelp("Please provide a container or use -a for all containers.")
-#
-#    allc = self.getDefinedContainers()
-#    containers = allc if self.options.allc else self.args[1:]
-#
-#    invalids = [ x for x in containers if x not in allc ]
-#    if len(invalids) > 0:
-#      logger.error("FATAL - Some containers specified were not found: %s" % ' '.join(invalids))
-#      sys.exit(1)
-#
-#    exists_lxc = []
-#    for container in [ x for x in allc if x in containers and self.lxcExists(x) ]:
-#      exists_lxc.append(container)
-#
-#    statuses = self.lxcStatus(exists_lxc)
-#
-#    row_format = "%-18s %-14s %-8s %-14s %-20s %s"
-#    logger.info( row_format % ( 'NAME', 'CONTAINER', 'PID', 'IP', 'UPTIME', 'EXIT' ) )
-#   
-#    for container in [ x for x in allc if x in containers ]:
-#      if container in statuses:
-#        status = statuses[container]
-#        logger.debug("%s" % status)
-#        logger.info( row_format % ( 
-#          container, 
-#          status['cid'] if status['cid'] else "-", 
-#          status['pid'] if status['pid'] else "-",
-#          status['ip'] if status['ip'] else "-",
-#          self.dateToAgo(status['startedat']) if status['running'] else "-",
-#          self.lxcErrorLabel(status) if not status['running'] else "-"
-#        ))
-#      else:
-#        logger.info( row_format % ( container , '-', '-', '-', '-', '-' ) )
-#
-#  def cmdRestart(self):
-#  
-#    self.readConfig()
-#
-#    if not len(self.args) >= 2 and not self.options.allc:
-#      self.exitWithHelp("Please provide a container to restart or use -a for all containers.")
-#
-#    allc = self.getDefinedContainers()
-#    containers = allc if self.options.allc else self.args[1:]
-#
-#    invalids = [ x for x in containers if x not in allc ]
-#    if len(invalids) > 0:
-#      logger.error("FATAL - Some containers specified were not found: %s" % ' '.join(invalids))
-#      sys.exit(1)
-#
-#    exitcode = 0
-#    for container in [ x for x in allc if x in containers ]:
-#      if container not in self.config:
-#        raise Exception("Container %s was not found in %s." % (container, self.options.configFile))
-#  
-#      if not self.lxcExists(container):
-#        logger.error("ERROR - lxc '%s' does not exist." % container)
-#        exitcode = 1
-#        continue
-#    
-#      if self.lxcRunning(container):
-#        try:
-#          self.lxcStop(container)
-#          logger.info("OK - lxc '%s' has been stopped." % container)
-#        except DockerCmdError as err:
-#          logger.debug(err.output)
-#          logger.debug("Error Code: %d" % err.returncode)
-#          logger.error(err)
-#          exitcode = err.returncode
-#          continue
-#
-#      try:
-#        pid = self.lxcStart(container)
-#        logger.info("OK - lxc '%s' has been started. (pid: %d)" % (container, pid))
-#      except DockerCmdError as err:
-#        logger.debug(err.output)
-#        logger.debug("Error Code: %d" % err.returncode)
-#        logger.error(err)
-#        exitcode = err.returncode
-#
-#    sys.exit(exitcode)
-#
-#  def cmdRecreate(self):
-# 
-#    self.readConfig()
-#
-#    if not len(self.args) >= 2 and not self.options.allc:
-#      self.exitWithHelp("Please provide a container to restart or use -a for all containers.")
-#
-#    allc = self.getDefinedContainers()
-#    containers = allc if self.options.allc else self.args[1:]
-#
-#    invalids = [ x for x in containers if x not in allc ]
-#    if len(invalids) > 0:
-#      logger.error("FATAL - Some containers specified were not found: %s" % ' '.join(invalids))
-#      sys.exit(1)
-#
-#    exitcode = 0
-#    for container in [ x for x in allc if x in containers ]:
-#      if container not in self.config:
-#        raise Exception("Container %s was not found in %s." % (container, self.options.configFile))
-#   
-#      if self.lxcExists(container): 
-#        if self.lxcRunning(container):
-#          try:
-#            self.lxcStop(container)
-#            logger.info("OK - lxc '%s' has been stopped." % container)
-#          except DockerCmdError as err:
-#            logger.debug(err.output)
-#            logger.debug("Error Code: %d" % err.returncode)
-#            logger.error(err)
-#            exitcode = err.returncode
-#  
-#        if self.lxcExists(container):
-#          try:
-#            self.lxcRemove(container)
-#            logger.info("OK - lxc '%s' has been removed." % container)
-#          except DockerCmdError as err:
-#            logger.debug(err.output)
-#            logger.debug("Error Code: %d" % err.returncode)
-#            logger.error(err)
-#            exitcode = err.returncode
-#
-#      if not self.lxcExists(container):
-#        try:
-#          self.lxcCreate(container)
-#          logger.info("OK - lxc '%s' has been created." % container)
-#        except DockerCmdError as err:
-#          logger.debug(err.output)
-#          logger.debug("Error Code: %d" % err.returncode)
-#          logger.error(err)
-#          exitcode = 1
-#
-#      try:
-#        pid = self.lxcStart(container)
-#        logger.info("OK - lxc '%s' has been started. (pid: %d)" % (container, pid))
-#      except DockerCmdError as err:
-#        logger.debug(err.output)
-#        logger.debug("Error Code: %d" % err.returncode)
-#        logger.error(err)
-#        exitcode = err.returncode
-#
-#    sys.exit(exitcode)
-#
-#
-#  def cmdStats(self):
-# 
-#    self.readConfig()
-#
-#    if not len(self.args) >= 2 and not self.options.allc:
-#      self.exitWithHelp("Please provide a container or use -a for all containers.")
-#
-#    allc = self.getDefinedContainers()
-#    containers = allc if self.options.allc else self.args[1:]
-#
-#    exists_lxc = []
-#    for container in [ x for x in allc if x in containers and self.lxcExists(x) ]:
-#      exists_lxc.append(container)
-# 
-#    if not len(exists_lxc):
-#      sys.exit("No containers currently exists.")
-# 
-#    try:
-#      cmd = [self.dockerClient,  'stats']
-#      cmd.extend(exists_lxc)
-#      proc = Popen(cmd, shell=False)
-#      proc.communicate()
-#      sys.exit(proc.returncode)
-#    except KeyboardInterrupt:
-#      logger.info("CTRL-C Received...Exiting.")
-#      sys.exit(0)
-#
-#  def cmdExec(self):
-#
-#    self.readConfig()
-#
-#    if not len(self.args) >= 2 and not self.options.allc:
-#      self.exitWithHelp("Please provide a container to exec on.")
-#
-#    container = self.args[1]
-#    command = self.args[2:]
-#
-#    if container not in self.config:
-#      raise Exception("ERROR - Container '%s' does not exist." % container)  
-#
-#    try:
-#      cmd = ['docker','exec']
-#      if self.options.term:
-#        cmd.append('-t')
-#      if self.options.interactive:
-#        cmd.append('-i')
-#
-#      cmd.append(container)
-#      cmd.extend(command)
-#      proc = Popen(cmd, shell=False)
-#      proc.communicate()
-#      sys.exit(proc.returncode)
-#    except KeyboardInterrupt:
-#      logger.info("CTRL-C Received...Exiting.")
-#      sys.exit(0)
-#
-#
-#
-#  def writePid(self, container, pid):
-#    if not self.pidsDir:
-#      return
-#    try:
-#      if not os.path.isdir(self.pidsDir):
-#        os.makedirs(self.pidsDir)
-#    except Exception as err:
-#      logger.warn("WARNING - Could not create DOCKWRKR_PIDSDIR %s : %s" % (self.pidsDir, err))
-#      return
-#     
-#    pidfile = "%s/%s.pid" % (self.pidsDir, container)
-#    try:
-#      with open(pidfile, 'w') as outfile:
-#        outfile.write("%d" % pid)
-#    except OSError as err:
-#      logger.warn("WARNING - Could not write to pidfile '%s': %s " % (pidfile, err))
-#
-#  def clearPid(self, container):
-#    if not self.pidsDir:
-#      return
-#
-#    try:
-#      pidfile = "%s/%s.pid" % (self.pidsDir, container)
-#      os.remove(pidfile)
-#    except OSError as err:
-#      logger.warn("WARNING - Could not remove pidfile '%s': %s " % (pidfile, err))
+    return Try.sequence(ops)

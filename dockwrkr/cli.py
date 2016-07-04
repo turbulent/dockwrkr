@@ -18,11 +18,12 @@ class DockwrkrCLI(Program):
     self.addCommand('start', 'dockwrkr.command.start')
     self.addCommand('stop', 'dockwrkr.command.stop')
     self.addCommand('remove', 'dockwrkr.command.remove')
-    #self.addCommand('restart', 'dockwrkr.command.restart')
-    #self.addCommand('recreate', 'dockwrkr.command.recreate')
-    #self.addCommand('pull', 'dockwrkr.command.pull')
+    self.addCommand('restart', 'dockwrkr.command.restart')
+    self.addCommand('recreate', 'dockwrkr.command.recreate')
+    self.addCommand('reset', 'dockwrkr.command.reset')
+    self.addCommand('pull', 'dockwrkr.command.pull')
+    self.addCommand('status', 'dockwrkr.command.status')
     #self.addCommand('exec', 'dockwrkr.command.exec')
-    #self.addCommand('status', 'dockwrkr.command.status')
     #self.addCommand('stats', 'dockwrkr.command.stats')
     return self
 
@@ -43,8 +44,9 @@ class DockwrkrCLI(Program):
     core = Core()
     if self.getOption('assumeYes'):
       command.assumeYes = True
- 
-    core.initialize().catch(self.exitError)
+
+    if command.autoInitCore: 
+      core.initialize().catch(self.exitError)
 
     command.core = core
     return command

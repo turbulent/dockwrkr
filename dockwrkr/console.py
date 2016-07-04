@@ -42,7 +42,8 @@ class CLI(object):
     self.parser = None
     self.name = None
     self.parent = None
-    
+    self.autoInitCore = True
+  
   def getHelp(self):
     """Returns the help description for this particular command"""
     return self.getParser().format_help()

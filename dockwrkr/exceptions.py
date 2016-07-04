@@ -8,6 +8,9 @@ class DockwrkrError(Exception):
     super(DockwrkrError, self).__init__(message)
     self.errorLabel = message
 
+class ConfigFileNotFound(DockwrkrError):
+  ''' Config file not found '''
+
 class FileSystemError(DockwrkrError):
   ''' File system exception '''
 
@@ -35,6 +38,9 @@ class InvalidConfigError(DockwrkrError):
   '''
   Raised on an invalid configuration is found
   '''
+
+class InvalidContainerError(DockwrkrError):
+  ''' Invalid container was specified '''
 
 class DockerError(ShellCommandError):
   '''

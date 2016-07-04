@@ -19,34 +19,25 @@ def ensureList(v):
     return []
 
 
-def expandLocalPath(path):
+def expandLocalPath(path, basePath):
   if not os.path.isabs(path):
     path = os.path.normpath(path)
-    basedir = os.path.dirname(self.confFile)
-    path = os.path.join(basedir, path)
+    path = os.path.join(basePath, path)
   return os.path.abspath(os.path.expanduser(os.path.realpath(path)))
 
-
-def walkUpForFile(self, root, findfile):
+def walkUpForFile(root, findfile):
   lastRoot = root
-  fileLocation = None
-  while fileLocation is None and root:
-    pruned = False
-    for root, dirs, files in os.walk(root):
-      if not pruned:
-        try:
-          del dirs[dirs.index(os.path.basename(lastRoot))]
-          pruned = True
-        except ValueError:
-         pass
+  while root:
+    for base, dirs, files in os.walk(root):
+      del dirs[0:len(dirs)]
       if findfile in files:
-        fileLocation = os.path.join(root, findfile)
-        return fileLocation
+        return os.path.join(base, findfile)
     lastRoot = root
     root = os.path.dirname(lastRoot)
-
-
-def dateToAgo(self, time=False):
+    if root == lastRoot:
+      break
+ 
+def dateToAgo(time=False):
   """
   Get a datetime object or a int() Epoch timestamp and return a
   pretty string like 'an hour ago', 'Yesterday', '3 months ago',

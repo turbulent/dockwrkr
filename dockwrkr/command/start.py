@@ -15,6 +15,6 @@ class Start(Command):
   def main(self):
     containers = self.args
     if not len(self.args) > 0 and not self.options.allc:
-      return self.exitWithHelp("Please provide a container to start or use -a for all containers.")
+      return self.exitError("Please provide a container to start or use -a for all containers.")
     return self.core.start(self.args, all=self.getOption('allc')) \
       .catch(self.exitError)
