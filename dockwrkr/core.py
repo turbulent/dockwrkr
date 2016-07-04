@@ -107,6 +107,9 @@ class Core(object):
       return Fail(InvalidContainerError("Container '%s' not defined." % ' '.join(missing)))
     return OK(ordered)
 
+  def create(self, containers=[], all=False):
+    return self.__command(self.__create, containers=containers, all=all)
+
   def start(self, containers=[], all=False):
     return self.__command(self.__start, containers=containers, all=all)
 
@@ -124,25 +127,6 @@ class Core(object):
       containers = self.getDefinedContainers()
     return self.__readStates(containers) \
       .bind(self.__status, containers=containers)
-
-  def __status(self, state, containers=[]):
-    table = []
-    for container in containers:
-      if container not in state:
-        status = docker.ContainerStatus(container)
-      else:
-        status = state[container]
-
-      row = [
-        container, 
-        status.getCol('cid'), 
-        status.getCol('pid'), 
-        status.getCol('ip'),
-        dateToAgo(status.startedat) if status.startedat else "-",
-        docker.getErrorLabel(status) if not status.running else "-"
-      ]
-      table.append(row)
-    return OK(table) 
 
   def reset(self, time=docker.DOCKER_STOP_TIME):
     managed = docker.readManagedContainers()
@@ -182,6 +166,36 @@ class Core(object):
     return self.readOrderedContainers(containers) \
       .bind(docker.filterExistingContainers) \
       .bind(docker.readContainersStatus) 
+
+  def __status(self, state, containers=[]):
+    table = []
+    for container in containers:
+      if container not in state:
+        status = docker.ContainerStatus(container)
+      else:
+        status = state[container]
+
+      row = [
+        container, 
+        status.getCol('cid'), 
+        status.getCol('pid'), 
+        status.getCol('ip'),
+        dateToAgo(status.startedat) if status.startedat else "-",
+        docker.getErrorLabel(status) if not status.running else "-"
+      ]
+      table.append(row)
+    return OK(table) 
+
+  def __create(self, state, containers=[]):
+    ops = []
+    for container in containers:
+      if container not in state:
+        op = docker.create(container, self.getContainerConfig(container), basePath=self.getBasePath()) \
+          .then(dinfo("'%s' has been created." % container)) 
+        ops.append(op)
+      else:
+        logger.warn("'%s' already exists." % container)
+    return Try.sequence(ops)
 
   def __start(self, state, containers=[]):
     ops = []

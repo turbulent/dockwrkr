@@ -293,11 +293,10 @@ class ContainerStatus(object):
     status = ContainerStatus(name)
     status.cid = cid[0:12] if cid else None
     status.image = image
-    status.ip = ip
-    status.pid = int(float(pid)) if pid else None
-    status.ports = ports
-    status.startedat = arrow.get(startedat).timestamp if startedat else None
+    status.ip = ip if ip else None
+    status.pid = int(pid) if pid and pid != "0" else None
     status.running = True if running == 'true' else False
+    status.startedat = arrow.get(startedat).timestamp if startedat and status.running else None
     status.exitcode = int(float(exitcode)) if exitcode else None
     status.exiterr = exiterr
     return status
