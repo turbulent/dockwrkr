@@ -1,7 +1,7 @@
 import logging
 from dockwrkr.monads import *
 from dockwrkr import (Command)
-from tabulate import tabulate
+import tabulate
 
 logger = logging.getLogger(__name__)
 
@@ -25,5 +25,6 @@ class Status(Command):
 
   def tabulateStatus(self, containerStatuses):
     headers = ["NAME", "CONTAINER", "PID", "IP", "UPTIME", "EXIT"]
-    table = tabulate(containerStatuses, headers=headers, tablefmt="plain")
+    tabulate.MIN_PADDING = 8
+    table = tabulate.tabulate(containerStatuses, headers=headers, tablefmt="plain")
     return OK(table)
