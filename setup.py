@@ -3,11 +3,12 @@ from setuptools import setup, find_packages
 with open('README.rst') as f:
     readme = f.read()
 
-version = '0.2'
+execfile('dockwrkr/_version.py')
+
 install_requires = ['setuptools', 'PyYAML', 'arrow']
 
 setup(name='dockwrkr',
-      version=version,
+      version=__version__,
       author='Turbulent/bbeausej',
       author_email='b@turbulent.ca',
       license='MIT',
