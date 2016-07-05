@@ -42,6 +42,9 @@ class Shell(object):
         return Fail(ShellCommandError(code=returncode))
     except CalledProcessError as err:
       return Fail(ShellCommandError(code=err.returncode, message=err.output, stdout=err.output))
+    except KeyboardInterrupt as err:
+      logger.info("CTRL-C Received...Exiting.")
+      return Fail(UserInterruptError(message="User interrupted."))
 
   @staticmethod
   def command(cmd):
@@ -64,7 +67,7 @@ class Shell(object):
         return Fail(ShellCommandError(code=proc.returncode, message=pout, stdout=pout, stderr=perr))
     except KeyboardInterrupt:
       logger.info("CTRL-C Received...Exiting.")
-      return Fail(UserInterruptError())
+      return Fail(UserInterruptError(message="User interrupted."))
 
   @staticmethod
   def streamCommand(cmd, cwd=None, shell=False, stream=False):
@@ -100,7 +103,7 @@ class Shell(object):
       return Fail(err)
     except KeyboardInterrupt:
       logger.info("CTRL-C Received...Exiting.")
-      return Fail(UserInterruptError())
+      return Fail(UserInterruptError(message="User interrupted."))
 
   @staticmethod
   def chmod(path, mode):

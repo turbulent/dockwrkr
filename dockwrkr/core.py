@@ -122,6 +122,11 @@ class Core(object):
   def restart(self, containers=[], all=False, time=docker.DOCKER_STOP_TIME):
     return self.__command(self.__restart, containers=containers, all=all, time=time)
 
+  def stats(self, containers=[]):
+    if not containers:
+      containers = self.getDefinedContainers()
+    return self.__command(self.__stats, containers=containers)
+
   def status(self, containers=[]):
     if not containers:
       containers = self.getDefinedContainers()
@@ -155,7 +160,23 @@ class Core(object):
       .bind(self.__remove, containers=containers, force=True, time=time) \
       .then(defer(self.__readStates, containers=containers)) \
       .bind(self.__start, containers=containers)
-   
+
+  def excmd(self, container, cmd, tty=False, interactive=False, user=None, detach=None, privileged=None):
+    return self.__readStates([container]) \
+      .bind(self.__exec, container=container, cmd=cmd, tty=tty, interactive=interactive, user=user, detach=detach, privileged=privileged)
+
+  def __stats(self, state, containers=[]):
+    existing = [ x for x in containers if x in state ]
+    return docker.stats(existing)
+ 
+  def __exec(self, state, container, cmd, tty=False, interactive=False, user=None, detach=False, privileged=False):
+    if container not in state:
+      return Fail(InvalidContainerError("'%s' does not exist. Cannot execute command." % container))
+    if not state[container].running:
+      return Fail(InvalidContainerError("'%s' is not running. Cannot execute command." % container))
+
+    return docker.execmd(container, cmd, tty, interactive, user, detach, privileged)
+  
   def __command(self, func, containers=[], all=False, *args, **kwargs):
     if all:
       containers = self.getDefinedContainers()

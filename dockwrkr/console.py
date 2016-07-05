@@ -153,7 +153,7 @@ class CLI(object):
 
   def exitError(self, msg=None, code=1):
     if msg and isinstance(msg, Exception):
-      logger.error("%s (%s)" % (msg, type(msg).__name__))
+      logger.error("%s (%s)" % (msg.message, type(msg).__name__))
     elif msg:
       logger.error(msg)
     sys.exit(1)

@@ -167,7 +167,36 @@ def remove(container, force=False):
 
 def pull(image):
   return dockerCommand("pull", image, stream=True)
- 
+
+def execmd(container, cmd, tty=False, interactive=False, user=None, detach=None, privileged=None):
+  opts = []
+  if tty:
+    opts.append('--tty')
+  if interactive:
+    opts.append('--interactive')
+  if user:
+    opts.append('--user %s' % user)
+  if detach:
+    opts.append('--detach')
+  if privileged:
+    opts.append('--privileged')
+
+  parts = []
+  parts.append(' '.join(opts))
+  parts.append(container)
+  parts.append(' '.join(cmd))
+
+  return Shell.call("%s %s %s" % ("docker", "exec", ' '.join(parts))) 
+
+def stats(containers=[]):
+  opts = ['-a']
+  
+  parts = []
+  parts.append(' '.join(opts))
+  parts.append(' '.join(containers))
+
+  return Shell.call("%s %s %s" % ("docker", "stats", ' '.join(parts))) 
+
 def readCreateParameters(container, config, basePath=None):
 
   cconf = config.copy()

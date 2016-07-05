@@ -23,8 +23,8 @@ class DockwrkrCLI(Program):
     self.addCommand('reset', 'dockwrkr.command.reset')
     self.addCommand('pull', 'dockwrkr.command.pull')
     self.addCommand('status', 'dockwrkr.command.status')
-    #self.addCommand('exec', 'dockwrkr.command.exec')
-    #self.addCommand('stats', 'dockwrkr.command.stats')
+    self.addCommand('exec', 'dockwrkr.command.exec')
+    self.addCommand('stats', 'dockwrkr.command.stats')
     return self
 
   def getShellOptions(self, optparser):

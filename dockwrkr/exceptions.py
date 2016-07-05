@@ -22,7 +22,7 @@ class ShellCommandError(DockwrkrError):
     self.stderr = stderr
     self.cmd = cmd
 
-class UserInterruptError(DockwrkrError):
+class UserInterruptError(ShellCommandError):
   ''' Raised when the user interrupts a process '''
 
 class InvalidCommandError(DockwrkrError):

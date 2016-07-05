@@ -2,6 +2,10 @@ from dockwrkr import (Command)
 
 class Help(Command):
 
+  def __init__(self):
+    super(Help, self).__init__()
+    self.autoInitCore = False
+  
   def getUsage(self):
     return "dockwrkr help [command?]"
 
