@@ -14,6 +14,7 @@ setup(name='dockwrkr',
       long_description=readme,
       description='dockwrkr - docker container launch wrapper',
       install_requires=install_requires,
+      test_suite='tests',
       packages=['dockwrkr'],
       entry_points={
         'console_scripts': [
