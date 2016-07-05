@@ -90,7 +90,7 @@ def dockerClient(cmd, params=""):
   return assertDockerVersion().then(defer(dockerCommand, cmd, params))
 
 def dockerCommand(cmd, params="", shell=False, stream=False, cwd=None):
-  return Shell.streamCommand("%s %s %s" % (DOCKER_CLIENT, cmd, params), shell=shell, cwd=cwd, stream=stream) \
+  return Shell.command("%s %s %s" % (DOCKER_CLIENT, cmd, params), shell=False) \
     .catch(onDockerError)
 
 def onDockerError(err):

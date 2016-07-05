@@ -58,6 +58,17 @@ class TestCore(tests.TestBase):
       self.assertFalse(os.path.isfile(os.path.join(pdir, "hello2.pid")))
       self.assertFalse(os.path.isfile(os.path.join(pdir, "hello3.pid")))
 
+  def testRes(self):
+    Shell.call("cp %s %s" % ("tests/dockwrkr-2.yml", os.path.join(self.basePath, "dockwrkr.yml")))
+    with self.pushd(self.basePath):
+      core = Core()
+      self.assertIsInstance(core.initialize(), OK)
+ 
+      self.assertIsInstance(core.reset(time=0), OK)
+      self.assertIsInstance(core.start(containers=['hello1']), OK)
+      self.assertIsInstance(core.restart(containers=['hello1'], time=0), OK)
+      self.assertIsInstance(core.recreate(containers=['hello1'], time=0), OK)
+
   @contextmanager
   def pushd(self, newDir):
     previousDir = os.getcwd()

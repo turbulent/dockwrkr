@@ -47,11 +47,11 @@ class Shell(object):
       return Fail(UserInterruptError(message="User interrupted."))
 
   @staticmethod
-  def command(cmd):
+  def command(cmd, shell=False, cwd=None):
     logger.debug("COMMAND: %s", cmd)
     try:
-      out = check_output(cmd, shell=True)
-      return OK(out.strip())
+      out = check_output(shlex.split(cmd), shell=shell, cwd=cwd)
+      return OK({'code':0, 'stdout':out.strip(), 'stderr':''})
     except CalledProcessError as err:
       return Fail(ShellCommandError(code=err.returncode, message=err.output, stdout=err.output))
 
