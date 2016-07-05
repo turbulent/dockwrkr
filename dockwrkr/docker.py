@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 DOCKWRKR_LABEL_DOMAIN='ca.turbulent.dockwrkr'
 DOCKER_STOP_TIME = 10
+DOCKER_CLIENT = "docker"
 
 DOCKER_LIST_OPTIONS = [
   'add-host',
@@ -89,7 +90,7 @@ def dockerClient(cmd, params=""):
   return assertDockerVersion().then(defer(dockerCommand, cmd, params))
 
 def dockerCommand(cmd, params="", shell=False, stream=False, cwd=None):
-  return Shell.streamCommand("%s %s %s" % ("docker", cmd, params), shell=shell, cwd=cwd, stream=stream) \
+  return Shell.streamCommand("%s %s %s" % (DOCKER_CLIENT, cmd, params), shell=shell, cwd=cwd, stream=stream) \
     .catch(onDockerError)
 
 def onDockerError(err):
@@ -120,7 +121,7 @@ def readContainerExists(container):
 def readContainerRunning(container):
   inspect = "--format=\"{{.State.Running}}\" %s 2> /dev/null" % (safeQuote(container))
   return dockerCommand("inspect", inspect) \
-    .bind(lambda r: OK(True) if r.stdout == "true" else OK(False))
+    .bind(lambda r: OK(True) if r['stdout'] == "true" else OK(False))
 
 def readContainerGhosted(container):
   inspect = "--format=\"{{ .State.Ghost }}\" %s" % (safeQuote(container))
@@ -144,7 +145,7 @@ def readContainersStatus(containers=[]):
 def readContainerPid(container):
   inspect = "--format '{{.State.Pid}}' %s" % (safeQuote(container))
   return dockerCommand("inspect", inspect) \
-    .bind(lambda r: OK(int(float(r.out.strip()))))
+    .bind(lambda r: OK(r['stdout'].strip()))
 
 def create(container, config, basePath=None):
   params = readCreateParameters(container, config, basePath=basePath) 
@@ -186,7 +187,7 @@ def execmd(container, cmd, tty=False, interactive=False, user=None, detach=None,
   parts.append(container)
   parts.append(' '.join(cmd))
 
-  return Shell.call("%s %s %s" % ("docker", "exec", ' '.join(parts))) 
+  return Shell.call("%s %s %s" % (DOCKER_CLIENT, "exec", ' '.join(parts))) 
 
 def stats(containers=[]):
   opts = ['-a']
@@ -195,7 +196,7 @@ def stats(containers=[]):
   parts.append(' '.join(opts))
   parts.append(' '.join(containers))
 
-  return Shell.call("%s %s %s" % ("docker", "stats", ' '.join(parts))) 
+  return Shell.call("%s %s %s" % (DOCKER_CLIENT, "stats", ' '.join(parts))) 
 
 def readCreateParameters(container, config, basePath=None):
 

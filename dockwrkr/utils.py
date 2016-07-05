@@ -109,7 +109,7 @@ def _dict_constructor(loader, node):
 yaml.add_representer(collections.OrderedDict, _dict_representer)
 yaml.add_constructor(_yaml_mapping_tag, _dict_constructor)
 
-def writeToFile(filename, data):
+def writeToFile(data, filename):
   try:
     with open(filename, "wb") as fh:
       fh.write(data)

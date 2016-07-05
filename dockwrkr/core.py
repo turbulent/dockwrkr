@@ -5,7 +5,8 @@ import re
 from dockwrkr.monads import *
 from dockwrkr.logs import *
 from dockwrkr.exceptions import *
-from dockwrkr.utils import (readYAML, mergeDict, ensureList, dateToAgo, walkUpForFile)
+from dockwrkr.shell import Shell
+from dockwrkr.utils import (readYAML, mergeDict, ensureList, dateToAgo, walkUpForFile, writeToFile, expandLocalPath)
 import dockwrkr.docker as docker
 
 logger = logging.getLogger(__name__)
@@ -15,22 +16,14 @@ class Core(object):
   def __init__(self):
     self.options = {}
     self.configFile = 'dockwrkr.yml'
-    self.dockerClient = 'docker'
-    self.pidsDir = None
     self.initialized = False
     self.config = {}
     return
 
-  def configDefaults(self):
-    if self.config.get('pids'):
-      self.pidsDir = self.config.get('pids')
-    if self.config.get('docker'):
-      self.dockerClient = self.config.get('docker')
-
   def initialize(self):
     if self.initialized:
       return OK(None)
-    return self.loadConfig().then(self.configDefaults).then(defer(self.setInitialized, b=True))
+    return self.loadConfig().then(defer(self.setInitialized, b=True))
 
   def setInitialized(self, b):
     self.initialized = b
@@ -224,11 +217,14 @@ class Core(object):
       if container not in state:
         op = docker.create(container, self.getContainerConfig(container), basePath=self.getBasePath()) \
           .then(defer(docker.start, container=container)) \
-          .then(dinfo("'%s' has been created and started." % container)) 
+          .then(dinfo("'%s' has been created and started." % container))  \
+          .then(defer(self.writePid, container=container))
         ops.append(op)
       else:
         if not state[container].running:
-          op = docker.start(container).bind(dinfo("'%s' has been started." % container))
+          op = docker.start(container) \
+            .bind(dinfo("'%s' has been started." % container)) \
+            .then(defer(self.writePid, container=container))
           ops.append(op)
         else:
           logger.warn("'%s' is already running." % container)
@@ -241,7 +237,9 @@ class Core(object):
         logger.warn("Container '%s' does not exist." % container)
       else:
         if state[container].running:
-          ops.append( docker.stop(container, time).bind(dinfo("'%s' has been stopped." % container)) )
+          op = docker.stop(container, time) \
+            .bind(dinfo("'%s' has been stopped." % container)) \
+            .then(defer(self.clearPid, container=container))
         else:
           logger.warn("'%s' is not running." % container)
     return Try.sequence(ops)
@@ -257,7 +255,8 @@ class Core(object):
           else:
             op = docker.stop(container, time=time) \
               .then(defer(docker.remove, container=container)) \
-              .bind(dinfo("'%s' has been stopped and removed." % container))
+              .bind(dinfo("'%s' has been stopped and removed." % container)) \
+              .then(defer(self.clearPid, container=container))
             ops.append(op)
         else:    
           ops.append(docker.remove(container).bind(dinfo("'%s' has been removed." % container)))
@@ -272,9 +271,45 @@ class Core(object):
         if state[container].running:
           op = docker.stop(container, time=time) \
             .then(defer(docker.start, container=container)) \
-            .bind(dinfo("'%s' has been restarted." % container))
+            .bind(dinfo("'%s' has been restarted." % container)) \
+            .then(defer(self.writePid, container=container))
           ops.append(op)
         else:
-          ops.append(docker.start(container).bind(dinfo("'%s' has been started." % container)))
+          ops.append(docker.start(container) \
+            .bind(dinfo("'%s' has been started." % container))) \
+            .then(defer(self.writePid, container=container))
 
     return Try.sequence(ops)
+
+  def getPidsConf(self):
+    return self.config.get('pids', {})
+  
+  def getPidsDir(self):
+    dir = self.getPidsConf().get('dir', '/var/run/dockwrkr')
+    return expandLocalPath(dir, self.getBasePath())
+
+  def arePidsEnabled(self):
+    return self.getPidsConf().get('enabled', False)
+
+  def writePid(self, container):
+    if not self.arePidsEnabled():
+      return OK(None)
+
+    dir = self.getPidsDir()
+    pidfile = os.path.join(dir, "%s.pid" % (container))
+
+    return Shell.makeDirectory(dir) \
+      .then(defer(docker.readContainerPid, container=container)) \
+      .bind(defer(Try.attempt, writeToFile, filename=pidfile))
+
+  def clearPid(self, container):
+    if not self.arePidsEnabled():
+      return OK(None)
+
+    dir = self.getPidsDir()
+    pidfile = os.path.join(dir, "%s.pid" % (container))
+
+    if os.path.isfile(pidfile):
+      return Try.attempt(os.remove, pidfile)
+    else:
+      return OK(None)
