@@ -12,41 +12,86 @@ Particularely useful when hooking into upstart and other process manager.
 # Usage 
 
 ```
-Usage: dockwrkr COMMAND [options] [SERVICE] [ARGS...]
+Usage: dockwrkr [options] COMMAND [command-options]
 
-dockwrkr - Docker Container composition.
+Docker container composition (version: 0.3)
 
 Options:
-  -f    Alternate config file location. defaults to containers.yml
-  -a    Operate on all defined containers.
-  -d    Activate debugging logs
-  -t    Allocate a pseudo-TTY
-  -i    Keep STDIN open even if not attached
+  -f CONFIGFILE  Override default config file
+  -d             Activate debugging output
+  -y             Assume yes when prompted
 
 Commands:
-  create        Create the specified container(s)
-  start         Start the specified container(s)
-  stop          Stop the specified container(s)
-  remove        Remove the specified container(s). Stop if needed
 
-  restart       Stop and then Start a container
-  recreate      Remove and then Start a container
-  pull          Pull images from the registry for a service
-
-  exec          Exec a command on a container
-  status        Output container status
-  stats         Output live docker container stats
+  help                Print help for a specific command
+  create              Create the specified container(s)
+  start               Start the specified container(s)
+  stop                Stop the specified container(s)
+  remove              Remove the specified container(s)
+  restart             Stop and Start the specified container(s)
+  recreate            Stop, Remove and Start the specified container(s)
+  reset               Reset container managed by dockwrkr (stop/remove)
+  pull                Pull the specified container(s)
+  status              Output the container status table
+  exec                Run a command in a running container
+  stats               Output live stats for the listed containers
 ```
 
 ## configuration file
 
-dockwrkr looks for the file ``containers.yml`` in the current directory by default. You can change this behaviour by explicitely passing the -f options to a new path or by exporting the environment variable DOCKWRKR_CONF.
+dockwrkr will walk up the current directory to locate the file ``dockwrkr.yml``. 
 
-*TODO* Describe config file yaml format.
+Your YAML configuration file should define a ``containers`` key that lists the run configuration for your containers.
+
+Here is a sample dockwrkr YAML configuration file:
+
+```
+pids:
+  enabled: True
+  dir: pids
+containers:
+  hello1:
+    image: busybox
+    hostname: hello1
+    env:
+      VAR_FOO_VAR: 1
+      VAR_FOO_BAR: "string"
+      VAR_FOO_VAR: null
+    command: /bin/sh -c "while true; do echo hello world; sleep 1; done"
+  hello2:
+    image: busybox
+    hostname: hello1
+    env:
+      VAR_FOO_VAR: 1
+      VAR_FOO_BAR: "string"
+      VAR_FOO_VAR: null
+    command: /bin/sh -c "while true; do echo hello world; sleep 1; done"
+  hello3:
+    image: busybox
+    hostname: hello1
+    env:
+      VAR_FOO_VAR: 1
+      VAR_FOO_BAR: "string"
+      VAR_FOO_VAR: null
+    command: /bin/sh -c "while true; do echo hello world; sleep 1; done"
+    volume:
+      - "/path/to/vol:/dest/of/vol"
+```
+
+Each parameter for each container match the ``docker run`` docker client options. 
+
 
 ## pids
 
-dockwrkr will write pids of the containers it manages in the ``/var/run/docker/dockwrkr`` directory by default. You can override this behaviour by exporting the environment variable DOCKWRKR_PIDSDIR.
+dockwrkr can write the pids of the containers it manages. To activate, add the ``pids`` section in your dockwrkr.yml file.
+
+```
+pids:
+  enabled: true
+  dir: path/to/pids
+```
+
+If a relative path is specified for ``pids.dir`` , it will be expanded from the configuration file location. 
 
 ## status
 
@@ -74,7 +119,7 @@ These commands will start or stop the specified containers.
 
 ```
 #host# dockwrkr start web
-OK - lxc 'web' has been started. (pid: 18738)
+'web' has been started. 
 #host# cat /var/run/docker/dockwrkr/web.pid
 18738
 #host#
@@ -84,30 +129,27 @@ You can affect multiple containers at once by listing them on the command line. 
 
 ```
 #host# dockwrkr stop web cache
-OK - lxc 'web' has been stopped.
-OK - lxc 'cache' has been stopped.
+'web' has been stopped.
+'cache' has been stopped.
 ```
 
 ```
 #host# dockwrkr start -a
-OK - lxc 'web' has been started. (pid: 19361)
-OK - lxc 'sessions' has been started. (pid: 19427)
-OK - lxc 'db' has been started. (pid: 19497)
-OK - lxc 'workers' has been started. (pid: 19552)
-OK - lxc 'cache' has been started. (pid: 19615)
-OK - lxc 'redis' has been started. (pid: 19704)
-OK - lxc 'monit' has been started. (pid: 19756)
-OK - lxc 'logrotate' has been started. (pid: 19787)
-OK - lxc 'rabbit' has been started. (pid: 19864)
-OK - lxc 'qmgr' has been started. (pid: 19916)
-OK - lxc 'cron' has been started. (pid: 19969)
+'dbmaster' has been created and started.
+'cache' has been created and started.
+'redis' has been created and started.
+'web' has been created and started.
+'qmgr' has been created and started.
+'cron' has been created and started.
+'logrotate' has been created and started.
+'abelo' has been created and started.
 ```
 
 ## stats
 
 The program will fetch the running docker containers and launch a "docker stats" stream in your terminal.
 ```
-#host# dockwrkr stats -a
+#host# dockwrkr stats 
 CONTAINER           CPU %               MEM USAGE/LIMIT       MEM %               NET I/O
 cache               0.00%               1008 KiB/3.614 GiB    0.03%               5.133 KiB/648 B
 cron                0.02%               8.629 MiB/3.614 GiB   0.23%               3.043 KiB/648 B
