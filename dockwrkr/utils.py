@@ -1,6 +1,12 @@
-import os
+import os, errno
+import sys
+import logging
+import collections
+import shutil
+import hashlib
+from time import time
 from datetime import datetime
-from pkg_resources import require
+from pkg_resources import Requirement, resource_filename, require
 import yaml
 
 try:  # py3
@@ -8,6 +14,24 @@ try:  # py3
 except ImportError:  # py2
     from pipes import quote
 
+from dockwrkr.exceptions import (
+  ConfigSyntaxError,
+  FileSystemError,
+  FileDoesNotExist
+)
+
+logger = logging.getLogger(__name__)
+
+_yaml_mapping_tag = yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG
+
+def _dict_representer(dumper, data):
+    return dumper.represent_dict(data.iteritems())
+
+def _dict_constructor(loader, node):
+    return collections.OrderedDict(loader.construct_pairs(node))
+
+yaml.add_representer(collections.OrderedDict, _dict_representer)
+yaml.add_constructor(_yaml_mapping_tag, _dict_constructor)
 
 def getPackageVersion():
   return require('dockwrkr')[0].version
@@ -79,35 +103,6 @@ def dateToAgo(time=False):
     return str(day_diff / 30) + " months ago"
   return str(day_diff / 365) + " years ago"
 
-import sys
-import yaml
-import tempfile
-import shutil
-import logging
-import collections
-import os, errno
-import hashlib
-import tarfile
-from time import time
-from pkg_resources import Requirement, resource_filename, require
-from substance.exceptions import (
-  ConfigSyntaxError,
-  FileSystemError,
-  FileDoesNotExist
-)
-
-logger = logging.getLogger(__name__)
-
-_yaml_mapping_tag = yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG
-
-def _dict_representer(dumper, data):
-    return dumper.represent_dict(data.iteritems())
-
-def _dict_constructor(loader, node):
-    return collections.OrderedDict(loader.construct_pairs(node))
-
-yaml.add_representer(collections.OrderedDict, _dict_representer)
-yaml.add_constructor(_yaml_mapping_tag, _dict_constructor)
 
 def writeToFile(data, filename):
   try:

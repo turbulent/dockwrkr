@@ -11,8 +11,14 @@ class DockwrkrError(Exception):
 class ConfigFileNotFound(DockwrkrError):
   ''' Config file not found '''
 
+class ConfigSyntaxError(DockwrkrError):
+  ''' Config syntax error '''
+
 class FileSystemError(DockwrkrError):
   ''' File system exception '''
+
+class FileDoesNotExist(DockwrkrError):
+  ''' File error exception '''
 
 class ShellCommandError(DockwrkrError):
   def __init__(self, code=None, message='', stdout='', stderr='', cmd=''):
