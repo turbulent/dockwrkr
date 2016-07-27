@@ -185,7 +185,7 @@ def unpackImageString(imageStr):
     unpack['image'] = parts[1]
   else:
     unpack['registry'] = None
-    unpack['image'] = image
+    unpack['image'] = imageStr
   return unpack
 
 def execmd(container, cmd, tty=False, interactive=False, user=None, detach=None, privileged=None):
