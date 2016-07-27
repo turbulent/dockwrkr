@@ -179,6 +179,45 @@ dockwrkr exec -ti web ps -auxwww
 #host #
 ```
 
+# Logging into docker registries
+
+If you want dockwrkr to automatically login to your private registry you can supply credentials for it in your dockwrkr.yml file. If dockwrkr tries to pull an image from a registry that is defined in the ``registries`` configuration key, it will attempt to automatically login before pulling.
+
+
+```
+pids:
+  enabled: True
+  dir: pids
+registries:
+  myregistry.com:
+    username: foo
+    password: bar
+    email: foo@bar.com
+containers:
+  private:
+    image: rmyregistry.com/path/private_image:0.4
+    hostname: private
+```
+
+This works well with Amazon's Elastic Container Registry (ECR):
+
+```
+pids:
+  enabled: True
+  dir: pids
+registries:
+  848559394958.dkr.ecr.us-east-1.amazonaws.com:
+    username: AWS
+    password: |
+        CiBwm0YaIyYjCVV+BAIBEICCAoo55cBYr9IBaPchhO8Ba0iPy8xRFuvIOSaw2yHVV/lE1
+        v5e9FZGck03lrA7q/rAFHRjvCrOdSS+/cvV2kpFv1drVEiMR9EEDRKdgLEw4ung3YrKDHqVZjXhxWaRiC2mFIKaDFNjyNYxY6Kmg5JCJTCwHRjOoWADJ0SJRDJdcqN8oKkyUvCEgW8idIWsFw5pjCLtQNtI2VX3XrnE8s5GLddQIsJOG3d1ak3a8LFzXUVb+V3eOysAuLtrCcZlPGyODZHI1nfcgcqjh16zeNitqRI2+H8G+kGAL2Xlbzwp8gVNkH+AX/vkbi0/1QFy/8KgyC7jvnn3+gedXqjNSW4sDS0yjCyp6pL+S4MVTkyq8fkrB/tdgRtJm5n1G6uqeekXuoXXPe5UFce9Rq8/14xKABgEBAgB4cJtGGiEiXkbSZuZ9RurqnnpF7qF1z3uVBXHvUavP9eMAAAL        XMIIC0wYsXHix4VRzWyzUbB8PANn/Qojf1oMQkQ2u15CZJ8Tol0LHgDi5/qGZ+wHTn+sz/dilpwlmrTuo+6avfZdfQy9r47+EPohNB0OquH03gt3fSjR5efU0ldE62VL/GrgHpgOH9qfSsCDvnKDuwfD5lFEIc3npcLh3djbcchTzCSqHdjAjgQgMQh54JSojL3TydS8WclKg6/W7wQIaozk+zfOoETPq90nO1UtT9QbBxbBBqL1JOs9Wu1owX1Ec9wS5oIuwXYNpHqDTA0EQTV4jZsZ335JMAijcM5GHN7MJ2ukOXOffonmHKoVdNJ7RpLBdz8moVKewhOF4jSh8GMbWu19W3uJsGHyS1oMfZz17whuWdetF77cf5cSUF7HXJEW77zDGRUVo0PWqg2CNEdCaonasScWKLQcT1AjhrQ+ctiXZcjoZGRRxFIZ8qR6t3lwn+sZIGszRkdhEI3lKW7EfZl4PfJVieip8m4sccbcetUzjLeSJeJKoZIhvcNAQcGoIICxDCCAsACAQAwggK5BgkqhkiG9w0BBwEwHgYJYIZIAWUDBAEuMBEEDGyzVF8QSt9pZg9PIg==
+    email: "none"
+containers:
+  private:
+    image: 848559394958.dkr.ecr.us-east-1.amazonaws.com/path/private_image:0.4
+    hostname: private 
+```
+
 # dockwrkr with upstart
 
 Provided you have dockwrkr set up, you will need one upstart job file per service you want to hook. The job will simply instruct dockwrkr to start all it's containers at once.

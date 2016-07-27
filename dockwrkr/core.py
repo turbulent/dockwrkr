@@ -15,7 +15,7 @@ class Core(object):
 
   def __init__(self):
     self.options = {}
-    self.configFile = 'dockwrkr.yml'
+    self.configFile = None
     self.initialized = False
     self.config = {}
     return
@@ -32,6 +32,9 @@ class Core(object):
     return self.readConfigFile() >> self.setConfig
 
   def findConfigFile(self):
+    if self.configFile:
+      return OK(self.configFile)
+
     configFile = walkUpForFile(os.getcwd(), "dockwrkr.yml")
     if not configFile:
       return Fail(ConfigFileNotFound("Could not locate config file: dockwrkr.yml"))
@@ -44,6 +47,10 @@ class Core(object):
   def setConfig(self, config):
     mergeDict(self.config, config)
     return OK(self)
+
+  def getRegistries(self):
+    regs = self.config.get('registries', {})
+    return regs
 
   def getDefinedContainers(self):
     graph = []
@@ -140,12 +147,28 @@ class Core(object):
     if all:
       containers = self.getDefinedContainers()
 
+    registries = self.getRegistries()
+
     def pullImage(container):
       image = self.getContainerImage(container)
-      return docker.pull(image).then(dinfo("'%s' (%s) has been pulled." % (container, image)))
+      unpacked = docker.unpackImageString(image)
+      registry = unpacked.get('registry')
+      op = OK(None)
+      if registry and registry in registries:
+        op.then(defer(self.login, registry=registry))
+      return op.then(defer(docker.pull, image=image)) \
+        .then(dinfo("'%s' (%s) has been pulled." % (container, image)))
 
     return Try.sequence(map(pullImage, containers))
 
+  def login(self, registry):
+    registries = self.getRegistries()
+    config = registries.get(registry)
+    if not config:
+      return Fail(InvalidRegistry("Invalid registry specified for login. It is not configured."))
+    logger.info("Logging into registry: %s" % registry)
+    return docker.login(registry, config.get('username'), config.get('password'), config.get('email'))
+ 
   def recreate(self, containers=[], all=False, time=docker.DOCKER_STOP_TIME):
     if all:
       containers = self.getDefinedContainers()

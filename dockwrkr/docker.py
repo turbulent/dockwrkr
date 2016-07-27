@@ -167,7 +167,26 @@ def remove(container, force=False):
   return dockerCommand("rm", params)
 
 def pull(image):
-  return dockerCommand("pull", image, stream=True)
+  return Shell.call("%s %s %s" % (DOCKER_CLIENT, "pull", image)) \
+    .catchError(ShellCommandError, defer(_pullLoginChain, image=image))
+
+def _pullLoginChain(err, image):
+  parts = unpackImageString(image)
+  if parts.get('registry'):
+    return login(parts.get('registry')).then(defer(pull, image=image))
+  else:
+    return Fail(err)
+  
+def unpackImageString(imageStr):
+  parts = imageStr.split('/', 1)
+  unpack = {}
+  if len(parts) > 1:
+    unpack['registry'] = parts[0]
+    unpack['image'] = parts[1]
+  else:
+    unpack['registry'] = None
+    unpack['image'] = image
+  return unpack
 
 def execmd(container, cmd, tty=False, interactive=False, user=None, detach=None, privileged=None):
   opts = []
@@ -197,6 +216,20 @@ def stats(containers=[]):
   parts.append(' '.join(containers))
 
   return Shell.call("%s %s %s" % (DOCKER_CLIENT, "stats", ' '.join(parts))) 
+
+def login(registry, username=None, password=None, email=None):
+  opts = []
+  if username:
+    opts.append("-u %s" % username)
+  if password:
+    opts.append("-p %s" % password)
+  if email:
+    opts.append("-e %s" % email)
+
+  return Shell.call("%s %s %s %s" % (DOCKER_CLIENT, "login", ' '.join(opts), registry))
+
+def logout(registry):
+  return dockerCommand("logout", "%s" % (registry))
 
 def readCreateParameters(container, config, basePath=None):
 
