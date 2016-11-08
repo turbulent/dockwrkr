@@ -69,6 +69,7 @@ DOCKER_SINGLE_OPTIONS = [
   'memory-swapiness',
   'name',
   'net',
+  'ip',
   'pid',
   'restart',
   'user',
