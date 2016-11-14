@@ -87,6 +87,30 @@ DOCKER_BOOL_OPTIONS = [
   'sig-proxy',
 ]
 
+DOCKER_NETWORK_LIST_OPTIONS = [
+  "gateway",
+  "subnet",
+  "ip-range",
+  "label",
+]
+
+DOCKER_NETWORK_SINGLE_OPTIONS = [
+  "driver",
+  "ipam-driver",
+]
+DOCKER_NETWORK_MAP_OPTIONS = [
+  ]
+
+DOCKER_NETWORK_MAPEQUAL_OPTIONS =[
+  "opt",
+  "aux_address",
+  "ipam-opt",
+]
+DOCKER_NETWORK_FLAG_OPTIONS = [
+  "internal",
+  "ipv6",
+]
+
 def dockerClient(cmd, params=""):
   return assertDockerVersion().then(defer(dockerCommand, cmd, params))
 
@@ -119,6 +143,15 @@ def readContainerExists(container):
     .bind(self.parseContainerList) \
     .map(self.__listToBool)
 
+def readNetworkExists(network):
+  net_filter = '-q --filter "label=%s.name=%s"' % (DOCKWRKR_LABEL_DOMAIN, network.keys()[0])
+  if dockerCommand('network ls', net_filter) \
+    .bind(parseContainerList) \
+    .map(__listToBool).value:
+    return Fail("Network Exists")
+  else:
+    return OK(network)
+
 def readContainerRunning(container):
   inspect = "--format=\"{{.State.Running}}\" %s 2> /dev/null" % (safeQuote(container))
   return dockerCommand("inspect", inspect) \
@@ -148,11 +181,17 @@ def readContainerPid(container):
   return dockerCommand("inspect", inspect) \
     .bind(lambda r: OK(r['stdout'].strip()))
 
-def create(container, config, basePath=None):
-  params = readCreateParameters(container, config, basePath=basePath) 
+def create(container, config, basePath=None, networks=None):
+  params = readCreateParameters(container, config, basePath=basePath, networks=networks)
   if params.isFail():
     return params
   return dockerCommand("create", params.getOK())
+
+def createNetwork(network):
+  params = readCreateNetworkParameters(network)
+  if params.isFail():
+    return params
+  return dockerCommand("network create", params.getOK())
 
 def start(container):
   return dockerCommand("start", container)
@@ -232,9 +271,65 @@ def login(registry, username=None, password=None, email=None):
 def logout(registry):
   return dockerCommand("logout", "%s" % (registry))
 
-def readCreateParameters(container, config, basePath=None):
+def readCreateNetworkParameters(network):
+  network_name = network.keys()[0]
+  network_params = network[network_name]
+
+  cmd = []
+  cmd_opt = []
+  cmd_list = []
+  cmd_map = []
+
+  for confkey, confval in network_params.iteritems():
+    if confkey in DOCKER_NETWORK_MAP_OPTIONS or confkey in DOCKER_NETWORK_MAPEQUAL_OPTIONS:
+      if isinstance(confval, dict):
+        for ck, cv in confval.iteritems():
+          if confkey in DOCKER_NETWORK_MAPEQUAL_OPTIONS:
+            cmd_map.append("--%s=\"%s\"=\"%s\"" % (confkey, ck, safeQuote(cv)))
+          else:
+            cmd_map.append("--%s=%s:%s" % (confkey, ck, safeQuote(cv)))
+        continue
+    if confkey in DOCKER_NETWORK_SINGLE_OPTIONS:
+      cmd_opt.append("--%s=%s" % (confkey, safeQuote(confval)))
+    elif confkey in DOCKER_NETWORK_FLAG_OPTIONS:
+        cmd_opt.append("--%s" % (confkey))
+    elif confkey in DOCKER_NETWORK_LIST_OPTIONS:
+      if not isinstance(confval, (basestring, list, tuple)):
+        return InvalidConfigError(
+          "[%s] Malformed option '%s': Should be string, number or list." % (network_name, confkey))
+      confval = ensureList(confval)
+      for i, lv in enumerate(confval):
+        cmd_list.append("--%s=%s" % (confkey, safeQuote(lv)))
+    else:
+      return InvalidConfigError("[%s] Unkown option '%s'." % (network_name, confkey))
+
+  for part in cmd_opt:
+    cmd.append(part)
+  for part in cmd_list:
+    cmd.append(part)
+  for part in cmd_map:
+    cmd.append(part)
+
+  cmd.append("--label %s.name=\"%s\"" % (DOCKWRKR_LABEL_DOMAIN, network_name))
+  cmd.append("--label %s.managed=1" % DOCKWRKR_LABEL_DOMAIN)
+  cmd.append(network_name)
+
+  cmdline = ""
+  for i, part in enumerate(cmd):
+    if i > 0:
+      cmdline += " "
+    cmdline += part
+
+  return OK(cmdline)
+
+def readCreateParameters(container, config, basePath=None, networks=None):
 
   cconf = config.copy()
+
+  if 'net' in cconf:
+    if networks and cconf['net'] in networks:
+      readNetworkExists({ cconf['net'] : networks[cconf['net']] }) \
+      .bind(createNetwork)
 
   cconf['name'] = container
 

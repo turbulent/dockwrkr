@@ -52,6 +52,10 @@ class Core(object):
     regs = self.config.get('registries', {})
     return regs
 
+  def getNetworks(self):
+    networks = self.config.get('networks', {})
+    return networks
+
   def getDefinedContainers(self):
     graph = []
     containers = self.config.get('containers')
@@ -227,7 +231,7 @@ class Core(object):
     ops = []
     for container in containers:
       if container not in state:
-        op = docker.create(container, self.getContainerConfig(container), basePath=self.getBasePath()) \
+        op = docker.create(container, self.getContainerConfig(container), basePath=self.getBasePath(), networks=self.getNetworks()) \
           .then(dinfo("'%s' has been created." % container)) 
         ops.append(op)
       else:
@@ -238,7 +242,7 @@ class Core(object):
     ops = []
     for container in containers:
       if container not in state:
-        op = docker.create(container, self.getContainerConfig(container), basePath=self.getBasePath()) \
+        op = docker.create(container, self.getContainerConfig(container), basePath=self.getBasePath(),  networks=self.getNetworks()) \
           .then(defer(docker.start, container=container)) \
           .then(dinfo("'%s' has been created and started." % container))  \
           .then(defer(self.writePid, container=container))
