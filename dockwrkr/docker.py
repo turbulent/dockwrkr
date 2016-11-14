@@ -106,7 +106,7 @@ DOCKER_NETWORK_MAPEQUAL_OPTIONS =[
   "aux_address",
   "ipam-opt",
 ]
-DOCKER_NETWORK_FLAG_OPTIONS = [
+DOCKER_NETWORK_BOOL_OPTIONS = [
   "internal",
   "ipv6",
 ]
@@ -291,8 +291,9 @@ def readCreateNetworkParameters(network):
         continue
     if confkey in DOCKER_NETWORK_SINGLE_OPTIONS:
       cmd_opt.append("--%s=%s" % (confkey, safeQuote(confval)))
-    elif confkey in DOCKER_NETWORK_FLAG_OPTIONS:
-        cmd_opt.append("--%s" % (confkey))
+    elif confkey in DOCKER_NETWORK_BOOL_OPTIONS:
+      if confval is not None and (confval is True or confval.lower() in ["true", "yes"] or confval == 1):
+        cmd_opt.append("--%s" % confkey)
     elif confkey in DOCKER_NETWORK_LIST_OPTIONS:
       if not isinstance(confval, (basestring, list, tuple)):
         return InvalidConfigError(
