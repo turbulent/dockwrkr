@@ -1,10 +1,27 @@
 ids:
   enabled: false
   dir: null
+
+networks:
+  container-network1:
+    driver: bridge
+    subnet:
+      - 172.19.0.0/16
+  container-network2:
+    driver: bridge
+    subnet:
+      - 172.20.0.0/16
+  container-network3:
+    driver: bridge
+    subnet:
+      - 172.21.0.0/16
+
 containers:
   hello1:
     image: busybox
     hostname: hello1
+    net: container-network1
+    ip: 172.19.0.15
     env:
       VAR_FOO_VAR: 1
       VAR_FOO_BAR: "string"
@@ -13,6 +30,8 @@ containers:
   hello2:
     image: busybox
     hostname: hello1
+    net: container-network2
+    ip: 172.20.0.15
     env:
       VAR_FOO_VAR: 1
       VAR_FOO_BAR: "string"
@@ -21,6 +40,8 @@ containers:
   hello3:
     image: busybox
     hostname: hello1
+    net: container-network3
+    ip: 172.21.0.15
     env:
       VAR_FOO_VAR: 1
       VAR_FOO_BAR: "string"

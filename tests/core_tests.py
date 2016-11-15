@@ -68,6 +68,7 @@ class TestCore(tests.TestBase):
       self.assertIsInstance(core.start(containers=['hello1']), OK)
       self.assertIsInstance(core.restart(containers=['hello1'], time=0), OK)
       self.assertIsInstance(core.recreate(containers=['hello1'], time=0), OK)
+      self.assertIsInstance(core.reset(time=0), OK)
 
   @contextmanager
   def pushd(self, newDir):
