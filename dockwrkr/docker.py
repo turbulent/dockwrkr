@@ -8,6 +8,8 @@ import arrow
 logger = logging.getLogger(__name__)
 
 DOCKWRKR_LABEL_DOMAIN='ca.turbulent.dockwrkr'
+DOCKWRKR_LABEL_DOMAIN_NETWORK='ca.turbulent.dockwrkr-network'
+
 DOCKER_STOP_TIME = 10
 DOCKER_CLIENT = "docker"
 
@@ -144,7 +146,7 @@ def readContainerExists(container):
     .map(self.__listToBool)
 
 def readNetworkExists(network):
-  net_filter = '-q --filter "label=%s.name=%s"' % (DOCKWRKR_LABEL_DOMAIN, network.keys()[0])
+  net_filter = '-q --filter "label=%s.name=%s"' % (DOCKWRKR_LABEL_DOMAIN_NETWORK, network.keys()[0])
   if dockerCommand('network ls', net_filter) \
     .bind(parseContainerList) \
     .map(__listToBool).value:
@@ -311,7 +313,7 @@ def readCreateNetworkParameters(network):
   for part in cmd_map:
     cmd.append(part)
 
-  cmd.append("--label %s.name=\"%s\"" % (DOCKWRKR_LABEL_DOMAIN, network_name))
+  cmd.append("--label %s.name=\"%s\"" % (DOCKWRKR_LABEL_DOMAIN_NETWORK, network_name))
   cmd.append("--label %s.managed=1" % DOCKWRKR_LABEL_DOMAIN)
   cmd.append(network_name)
 
