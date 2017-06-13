@@ -1,15 +1,34 @@
 # dockwrkr
+
 General purpose container composition script.
 
-# Overview
+## Overview
 
-dockwrkr is a simple python script that acts as a wrapper to docker command line arguments.
-What dockwrkr adds is the ability for writing PID files of the started containers (for monitoring purposes) as well
-as provide a series of simple command to interrogate the docker daemon about container status for your docker containers.
+`dockwrkr` is a simple python script that acts as a wrapper to Docker command
+line arguments. What `dockwrkr` adds is the ability for writing PID files of
+the started containers (for monitoring purposes) as well as provide a series
+of simple command to interrogate the Docker daemon about container status for
+your Docker containers.
 
-Particularely useful when hooking into upstart and other process manager.
+Particularely useful when hooking into systemd, Upstart, or other process
+manager.
 
-# Usage 
+## Why not use `docker-compose`?
+
+This script is similar to `docker-compose`, except that it invokes the actual
+`docker run` command-line options directly. If a new version of Docker adds
+a new option to `docker run`, you don't need to upgrade this script, you can
+start using the option right away in your `dockwrkr.yml` file!
+
+## Requirements
+
+This script requires Python 2.7.x to work. Support for Python 3.x is not ready
+yet.
+
+The `docker` command-line tool must also be in your `PATH` variable for this
+script to work properly.
+
+## Usage 
 
 ```
 Usage: dockwrkr [options] COMMAND [command-options]
@@ -37,13 +56,15 @@ Commands:
   stats               Output live stats for the listed containers
 ```
 
-## configuration file
+### Configuration File
 
-dockwrkr will walk up the current directory to locate the file ``dockwrkr.yml``. 
+`dockwrkr` will walk up the current directory to locate the file
+``dockwrkr.yml``. 
 
-Your YAML configuration file should define a ``containers`` key that lists the run configuration for your containers.
+Your YAML configuration file should define a `containers` key that lists the
+run configuration for your containers.
 
-Here is a sample dockwrkr YAML configuration file:
+Here is a sample `dockwrkr.yml` configuration file:
 
 ```
 pids:
@@ -78,12 +99,14 @@ containers:
       - "/path/to/vol:/dest/of/vol"
 ```
 
-Each parameter for each container match the ``docker run`` docker client options. 
+Each parameter for each container match the ``docker run`` Docker client
+options. 
 
 
-## pids
+### PIDs
 
-dockwrkr can write the pids of the containers it manages. To activate, add the ``pids`` section in your dockwrkr.yml file.
+`dockwrkr` can write the pids of the containers it manages. To activate, add
+the ``pids`` section in your `dockwrkr.yml` file.
 
 ```
 pids:
@@ -91,11 +114,13 @@ pids:
   dir: path/to/pids
 ```
 
-If a relative path is specified for ``pids.dir`` , it will be expanded from the configuration file location. 
+If a relative path is specified for `pids.dir`, it will be expanded from the
+configuration file location. 
 
-## status
+### status
 
-Returns a table with the PID and UPTIME/EXIT status of the docker-compose services. The program will do the service to container name lookup itself.
+Returns a table with the PID and UPTIME/EXIT status of the services. The
+program will do the service-to-container name lookup itself.
 
 Sample output:
 ```
@@ -113,28 +138,29 @@ qmgr               cf6766f0c39c   24364    172.17.0.5     1 months ago         -
 cron               45c26cf9c3d4   26279    172.17.0.10    1 months ago         -
 ```
 
-## start / stop
+### start / stop
 
 These commands will start or stop the specified containers. 
 
 ```
-#host# dockwrkr start web
+# dockwrkr start web
 'web' has been started. 
-#host# cat /var/run/docker/dockwrkr/web.pid
+# cat /var/run/docker/dockwrkr/web.pid
 18738
-#host#
 ```
 
-You can affect multiple containers at once by listing them on the command line. Alternatively you can also use the -a switch to affect all defined containers.
+You can affect multiple containers at once by listing them on the command line.
+Alternatively you can also use the `-a` switch to affect all defined
+containers.
 
 ```
-#host# dockwrkr stop web cache
+# dockwrkr stop web cache
 'web' has been stopped.
 'cache' has been stopped.
 ```
 
 ```
-#host# dockwrkr start -a
+# dockwrkr start -a
 'dbmaster' has been created and started.
 'cache' has been created and started.
 'redis' has been created and started.
@@ -142,14 +168,15 @@ You can affect multiple containers at once by listing them on the command line. 
 'qmgr' has been created and started.
 'cron' has been created and started.
 'logrotate' has been created and started.
-'abelo' has been created and started.
 ```
 
-## stats
+### stats
 
-The program will fetch the running docker containers and launch a "docker stats" stream in your terminal.
+The program will fetch the running Docker containers and launch a "docker
+stats" stream in your terminal.
+
 ```
-#host# dockwrkr stats 
+# dockwrkr stats 
 CONTAINER           CPU %               MEM USAGE/LIMIT       MEM %               NET I/O
 cache               0.00%               1008 KiB/3.614 GiB    0.03%               5.133 KiB/648 B
 cron                0.02%               8.629 MiB/3.614 GiB   0.23%               3.043 KiB/648 B
@@ -164,7 +191,7 @@ web                 0.04%               31.93 MiB/3.614 GiB   0.86%             
 workers             0.02%               125.5 MiB/3.614 GiB   3.39%               14.35 KiB/9.502 KiB
 ```
 
-# exec
+### exec
 
 Use this command to execute a command within a container.
 
@@ -174,14 +201,17 @@ dockwrkr exec -ti web ps -auxwww
 ```
 
 ```
-#host# dockwrkr exec -ti web bash
-#container $  exit
-#host #
+host # dockwrkr exec -ti web bash
+web $  exit
+host #
 ```
 
-# Logging into docker registries
+## Logging into docker registries
 
-If you want dockwrkr to automatically login to your private registry you can supply credentials for it in your dockwrkr.yml file. If dockwrkr tries to pull an image from a registry that is defined in the ``registries`` configuration key, it will attempt to automatically login before pulling.
+If you want `dockwrkr` to automatically login to your private registry you can
+supply credentials for it in your `dockwrkr.yml` file. If `dockwrkr` tries to
+pull an image from a registry that is defined in the `registries` configuration
+key, it will attempt to automatically login before pulling.
 
 
 ```
@@ -218,11 +248,13 @@ containers:
     hostname: private 
 ```
 
-# dockwrkr with upstart
+## `dockwrkr` with Upstart
 
-Provided you have dockwrkr set up, you will need one upstart job file per service you want to hook. The job will simply instruct dockwrkr to start all it's containers at once.
+Provided you have `dockwrkr` set up, you will need one upstart job file per
+service you want to hook. The job will simply instruct `dockwrkr` to start all
+its containers at once.
 
-/etc/init/myservice.conf: 
+`/etc/init/myservice.conf`: 
 ```
 #!upstart
 stop on runlevel [06]
@@ -237,14 +269,18 @@ post-stop script
 end script
 ```
 
-You can then use *start myservice* and *stop myservice* on your Ubuntu system to control this service.
+You can then use *start myservice* and *stop myservice* on your Ubuntu system
+to control this service.
 
-## Multiple services
+### Multiple services
 
-You can also use a linked job to start / stop multiple docker containers on host boot / shutdown.
-Templating this file with salt/ansible/chef makes this deployment simple for DevOps.
+You can also use a linked job to start / stop multiple Docker containers on
+host boot / shutdown. Templating this file with salt/ansible/chef makes this
+deployment simple for DevOps.
 
-Suppose you have a dockwrkr config file with 3 services : web, db and cache, you could create a master upstart job like so:
+Suppose you have a `dockwrkr.yml` file with 3 services : web, db and cache, you
+could create a master upstart job like so:
+
 ```
 #!upstart
 description     "Host Containers"
@@ -266,4 +302,9 @@ end script
 ```
 
 This would start the *db, cache, web* docker-compose service on host boot.
+
+## License
+
+All work found under this repository is licensed under the [Apache
+License 2.0](LICENSE).
 
