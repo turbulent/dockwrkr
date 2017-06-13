@@ -9,9 +9,9 @@ install_requires = ['setuptools', 'PyYAML', 'arrow', 'tabulate']
 
 setup(name='dockwrkr',
       version=__version__,
-      author='Turbulent/bbeausej',
-      author_email='b@turbulent.ca',
-      license='MIT',
+      author='Turbulent inc.',
+      author_email='oss@turbulent.ca',
+      license='Apache License 2.0',
       long_description=readme,
       description='dockwrkr - docker container launch wrapper',
       install_requires=install_requires,
