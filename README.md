@@ -168,6 +168,7 @@ containers.
 'qmgr' has been created and started.
 'cron' has been created and started.
 'logrotate' has been created and started.
+'abelo' has been created and started.
 ```
 
 ### stats
@@ -248,7 +249,40 @@ containers:
     hostname: private 
 ```
 
-## `dockwrkr` with Upstart
+# Creating user defined networks
+If you want to create user defined networks, you can define them in your dockwrkr.yml file. 
+
+```
+pids:
+  enabled: True
+  dir: pids
+registries:
+  myregistry.com:
+    username: foo
+    password: bar
+    email: foo@bar.com
+networks:
+  container-network:
+    driver: bridge
+    subnet: 172.19.0.0/16
+
+```
+
+And then specify them in your container definition. You can also optionally assign it a static IP
+```
+containers:
+  private:
+    image: rmyregistry.com/path/private_image:0.4
+    hostname: private
+    net: container-network
+    ip: 172.19.0.11
+```
+
+# dockwrkr with upstart
+
+Provided you have dockwrkr set up, you will need one upstart job file per service you want to hook. The job will simply instruct dockwrkr to start all it's containers at once.
+
+/etc/init/myservice.conf: 
 
 Provided you have `dockwrkr` set up, you will need one upstart job file per
 service you want to hook. The job will simply instruct `dockwrkr` to start all

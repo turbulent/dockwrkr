@@ -146,7 +146,7 @@ def readContainerExists(container):
     .map(self.__listToBool)
 
 def readNetworkExists(network):
-  net_filter = '-q --filter "label=%s.name=%s"' % (DOCKWRKR_LABEL_DOMAIN_NETWORK, network.keys()[0])
+  net_filter = '-q --filter \"name=%s\"' % (network.keys()[0])
   if dockerCommand('network ls', net_filter) \
     .bind(parseContainerList) \
     .map(__listToBool).value:
