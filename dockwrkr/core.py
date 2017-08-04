@@ -58,9 +58,18 @@ class Core(object):
         networks = self.config.get('networks', {})
         return networks
 
-    def getDefinedContainers(self):
+    def getDefinedServices(self):
+        config_name = 'services'
+        if not self.config.get(config_name):
+            config_name = 'containers'
+        return self.getDefinedContainers(config_name)
+
+    def getDefinedJobs(self):
+        return self.getDefinedContainers('jobs')
+
+    def getDefinedContainers(self, configName='containers'):
         graph = []
-        containers = self.config.get('containers')
+        containers = self.config.get(configName)
         if not containers:
             containers = self.config
             self.legacyConfig = True
@@ -71,8 +80,6 @@ class Core(object):
 
         def resolveDependencies(node, resolved):
             for dep in node['deps']:
-                if dep not in containers.keys():
-                    raise InvalidContainerError("Container named '%s' is listed as a dependency but it is never defined." % dep)
                 depnode = self.getContainerDependencies(dep)
                 if depnode['name'] not in resolved:
                     resolveDependencies(depnode, resolved)
@@ -89,6 +96,8 @@ class Core(object):
         node['name'] = container
         deps = []
         config = self.getContainerConfig(container)
+        if not config:
+            raise InvalidContainerError("Container named '%s' is listed as a dependency but it is never defined." % dep)
         if "link" in config:
             for link in ensureList(config['link']):
                 deps.append(link.partition(':')[0])
@@ -99,7 +108,16 @@ class Core(object):
         return os.path.dirname(self.configFile)
 
     def getContainerConfig(self, container):
-        return self.config.get('containers', {}).get(container)
+        config = self.getServiceConfig(container)
+        if config:
+            return config
+        return self.getJobConfig(container)
+
+    def getServiceConfig(self, container):
+        return self.config.get('services', self.config.get('containers', {})).get(container)
+
+    def getJobConfig(self, container):
+        return self.config.get('jobs', {}).get(container)
 
     def getContainerImage(self, container):
         conf = self.getContainerConfig(container)
@@ -109,7 +127,7 @@ class Core(object):
 
     def readOrderedContainers(self, containers=[]):
         try:
-            defined = self.getDefinedContainers()
+            defined = self.getDefinedServices()
         except Exception as e:
             return Fail(e)
         missing = [x for x in containers if x not in defined]
@@ -136,7 +154,7 @@ class Core(object):
     def stats(self, containers=[]):
         if not containers:
             try:
-                containers = self.getDefinedContainers()
+                containers = self.getDefinedServices()
             except Exception as e:
                 return Fail(e)
         return self.__command(self.__stats, containers=containers)
@@ -144,7 +162,7 @@ class Core(object):
     def status(self, containers=[]):
         if not containers:
             try:
-                containers = self.getDefinedContainers()
+                containers = self.getDefinedServices()
             except Exception as e:
                 return Fail(e)
         return self.__readStates(containers) \
@@ -163,7 +181,7 @@ class Core(object):
     def pull(self, containers=[], all=False):
         if all:
             try:
-                containers = self.getDefinedContainers()
+                containers = self.getDefinedServices()
             except Exception as e:
                 return Fail(e)
 
@@ -192,13 +210,22 @@ class Core(object):
     def recreate(self, containers=[], all=False, time=docker.DOCKER_STOP_TIME):
         if all:
             try:
-                containers = self.getDefinedContainers()
+                containers = self.getDefinedServices()
             except Exception as e:
                 return Fail(e)
         return self.__readStates(containers) \
             .bind(self.__remove, containers=containers, force=True, time=time) \
             .then(defer(self.__readStates, containers=containers)) \
             .bind(self.__start, containers=containers)
+
+    def run(self, container, containerArgs):
+        jobs = self.getDefinedJobs()
+        try:
+            if container not in jobs:
+                return Fail(InvalidContainerError("Container %s is not a defined job." % container))
+        except Exception as e:
+            return Fail(e)
+        return docker.run(container, containerArgs, self.getJobConfig(container), basePath=self.getBasePath(), networks=self.getNetworks())
 
     def excmd(self, container, cmd, tty=False, interactive=False, user=None, detach=None, privileged=None):
         return self.__readStates([container]) \
@@ -219,7 +246,7 @@ class Core(object):
     def __command(self, func, containers=[], all=False, *args, **kwargs):
         if all:
             try:
-                containers = self.getDefinedContainers()
+                containers = self.getDefinedServices()
             except Exception as e:
                 return Fail(e)
         return self.__readStates(containers) \
