@@ -15,239 +15,251 @@ from dockwrkr.exceptions import InvalidCommandError
 
 logger = logging.getLogger(__name__)
 
+
 class Parser(optparse.OptionParser):
-  pass
-  def format_epilog(self, formatter):
-    return "\n"+self.epilog if self.epilog else ""
+    pass
+
+    def format_epilog(self, formatter):
+        return "\n" + self.epilog if self.epilog else ""
+
 
 class PassThroughParser(Parser):
-  def _process_long_opt(self, rargs, values):
-    try:
-      optparse.OptionParser._process_long_opt(self, rargs, values)
-    except optparse.BadOptionError, err:
-      self.largs.append(err.opt_str)
+    def _process_long_opt(self, rargs, values):
+        try:
+            optparse.OptionParser._process_long_opt(self, rargs, values)
+        except optparse.BadOptionError, err:
+            self.largs.append(err.opt_str)
 
-  def _process_short_opts(self, rargs, values):
-    try:
-      optparse.OptionParser._process_short_opts(self, rargs, values)
-    except optparse.BadOptionError, err:
-      self.largs.append(err.opt_str)
+    def _process_short_opts(self, rargs, values):
+        try:
+            optparse.OptionParser._process_short_opts(self, rargs, values)
+        except optparse.BadOptionError, err:
+            self.largs.append(err.opt_str)
+
 
 class CLI(object):
-  def __init__(self, assumeYes=False):
-    self.assumeYes = assumeYes
-    self.args = None
-    self.options = None
-    self.input = None
-    self.parser = None
-    self.name = None
-    self.parent = None
-    self.autoInitCore = True
-  
-  def getHelp(self):
-    """Returns the help description for this particular command"""
-    return self.getParser().format_help()
+    def __init__(self, assumeYes=False):
+        self.assumeYes = assumeYes
+        self.args = None
+        self.options = None
+        self.input = None
+        self.parser = None
+        self.name = None
+        self.parent = None
+        self.autoInitCore = True
 
-  def getHelpTitle(self):
-    return ""
+    def getHelp(self):
+        """Returns the help description for this particular command"""
+        return self.getParser().format_help()
 
-  def getHelpDetails(self):
-    return ""
+    def getHelpTitle(self):
+        return ""
 
-  def getUsage(self):
-    return "command: USAGE [options]"
+    def getHelpDetails(self):
+        return ""
 
-  def getParserClass(self):
-    return Parser
+    def getUsage(self):
+        return "command: USAGE [options]"
 
-  def getParser(self, interspersed=True):
-    usage = self.getUsage()
-    parserClass = self.getParserClass()
-    parser = parserClass(usage=usage, conflict_handler="resolve", add_help_option=False, description=self.getHelpTitle(), epilog=self.getHelpDetails())
-    self.getShellOptions(parser)
-    if interspersed:
-      parser.enable_interspersed_args()
-    else:
-      parser.disable_interspersed_args()
-    return parser
+    def getParserClass(self):
+        return Parser
 
-  def parseShellInput(self, interspersed=True):
-    """Return the options and arguments for this command as a tuple"""
-    usage = self.getUsage()
-    parser = self.getParser(interspersed)
-    (opts, args) = parser.parse_args(self.input)
-    return (opts, args)
+    def getParser(self, interspersed=True):
+        usage = self.getUsage()
+        parserClass = self.getParserClass()
+        parser = parserClass(usage=usage, conflict_handler="resolve", add_help_option=False,
+                             description=self.getHelpTitle(), epilog=self.getHelpDetails())
+        self.getShellOptions(parser)
+        if interspersed:
+            parser.enable_interspersed_args()
+        else:
+            parser.disable_interspersed_args()
+        return parser
 
-  def getShellOptions(self, optparser):
-    return optparser
+    def parseShellInput(self, interspersed=True):
+        """Return the options and arguments for this command as a tuple"""
+        usage = self.getUsage()
+        parser = self.getParser(interspersed)
+        (opts, args) = parser.parse_args(self.input)
+        return (opts, args)
 
-  def execute(self, args=None):
-    self.input = args
-    (self.options, self.args) = self.parseShellInput()
-    return self.main()
+    def getShellOptions(self, optparser):
+        return optparser
 
-  def initialize(self):
-    pass
+    def execute(self, args=None):
+        self.input = args
+        (self.options, self.args) = self.parseShellInput()
+        return self.main()
 
-  def main(self):
-    pass
+    def initialize(self):
+        pass
 
-  def getOptions(self):
-    return self.options
+    def main(self):
+        pass
 
-  def hasOption(self, key):
-    if self.options and hasattr(self.options, key):
-      return True
+    def getOptions(self):
+        return self.options
 
-  def getOption(self, key):
-    if self.hasOption(key):
-      return getattr(self.options, key, None)
-    return None
+    def hasOption(self, key):
+        if self.options and hasattr(self.options, key):
+            return True
 
-  def getArgs(self):
-    return self.args
+    def getOption(self, key):
+        if self.hasOption(key):
+            return getattr(self.options, key, None)
+        return None
 
-  def hasArg(self, argno):
-    if len(self.args) < argno + 1:
-      return False
-    return True
+    def getArgs(self):
+        return self.args
 
-  def getArg(self, argno):
-    if self.hasArg(argno):
-      return self.args[argno]
-    return None
+    def hasArg(self, argno):
+        if len(self.args) < argno + 1:
+            return False
+        return True
 
-  def read(self, msg=""):
-    return raw_input(msg)
+    def getArg(self, argno):
+        if self.hasArg(argno):
+            return self.args[argno]
+        return None
 
-  def readln(self, msg=""):
-    return raw_input(msg + "\n")
+    def read(self, msg=""):
+        return raw_input(msg)
 
-  def readpwd(self, msg=""):
-    return getpass(msg)
+    def readln(self, msg=""):
+        return raw_input(msg + "\n")
 
-  def readpwdln(self, msg=""):
-    return getpass(msg + "\n")
+    def readpwd(self, msg=""):
+        return getpass(msg)
 
-  def ask(self, msg):
-    if self.assumeYes:
-      return True
-    print(msg)
-    res = raw_input('Proceed? [N/y] ')
-    if not res.lower().startswith('y'):
-      return False
-    print('... proceeding')
-    return True
+    def readpwdln(self, msg=""):
+        return getpass(msg + "\n")
 
-  def exitOK(self, msg=None):
-    if msg:
-      logger.info(msg)
-    sys.exit(0)
+    def ask(self, msg):
+        if self.assumeYes:
+            return True
+        print(msg)
+        res = raw_input('Proceed? [N/y] ')
+        if not res.lower().startswith('y'):
+            return False
+        print('... proceeding')
+        return True
 
-  def exitHelp(self, msg=None, code=1):
-    logger.info(self.getHelp())
-    logger.info("")
-    if msg:
-      logger.info(msg)
-    sys.exit(1)
+    def exitOK(self, msg=None):
+        if msg:
+            logger.info(msg)
+        sys.exit(0)
 
-  def exitError(self, msg=None, code=1):
-    if msg and isinstance(msg, Exception):
-      logger.error("%s (%s)" % (msg.message, type(msg).__name__))
-    elif msg:
-      logger.error(msg)
-    sys.exit(1)
+    def exitHelp(self, msg=None, code=1):
+        logger.info(self.getHelp())
+        logger.info("")
+        if msg:
+            logger.info(msg)
+        sys.exit(1)
+
+    def exitError(self, msg=None, code=1):
+        if msg and isinstance(msg, Exception):
+            logger.error("%s (%s)" % (msg.message, type(msg).__name__))
+        elif msg:
+            logger.error(msg)
+        sys.exit(1)
 
 
 class Program(CLI):
-  def __init__(self):
-    super(Program, self).__init__()
-    self.cmdString = None
-    self.commandInput = None
-    self.command = None
-    self.core = None
-    self.commands = OrderedDict()
+    def __init__(self):
+        super(Program, self).__init__()
+        self.cmdString = None
+        self.commandInput = None
+        self.command = None
+        self.core = None
+        self.commands = OrderedDict()
 
-  def setupCommands(self):
-    pass
-    
-  def getCommands(self):
-    k = self.commands.keys()
-    v = map(lambda x: self.getCommand(x), k)
-    return OrderedDict(zip(k, v))
+    def setupCommands(self):
+        pass
 
-  def getCommand(self, commandName):
-    if commandName not in self.commands:
-      raise InvalidCommandError("Invalid command '%s' specified" % commandName)
- 
-    commandModule = self.commands[commandName]
-    module_ = importlib.import_module(commandModule)
-    class_ = getattr(module_, commandName.title())
-    command = class_()
-    command.parent = self
-    command.name = commandName
-    return command
+    def getCommands(self):
+        k = self.commands.keys()
+        v = map(lambda x: self.getCommand(x), k)
+        return OrderedDict(zip(k, v))
 
-  def addCommand(self, commandName, commandModule):
-    if commandName in self.commands:
-      raise ValueError("Command '%s' is already registered." % commandName)
-    self.commands[commandName] = commandModule
- 
-  def removeCommand(self, commandName):
-    if commandName not in self.commands:
-      raise ValueError("Command '%s' is not registered." % commandName)
-    self.commands.pop(commandName, None)
+    def getCommand(self, commandName):
+        if commandName not in self.commands:
+            raise InvalidCommandError(
+                "Invalid command '%s' specified" % commandName)
 
-  def getHelpDetails(self):
-    helpUsage = "Commands:\n\n"
-    for name, command in self.getCommands().iteritems():
-      helpUsage += "  %-20s%s\n" % (name, command.getHelpTitle())
-    return helpUsage
+        commandModule = self.commands[commandName]
+        module_ = importlib.import_module(commandModule)
+        class_ = getattr(module_, commandName.title())
+        command = class_()
+        command.parent = self
+        command.name = commandName
+        return command
 
-  def setupEnv(self):
-    """Setup the Environment """
+    def addCommand(self, commandName, commandModule):
+        if commandName in self.commands:
+            raise ValueError(
+                "Command '%s' is already registered." % commandName)
+        self.commands[commandName] = commandModule
 
-  def setupLogging(self):
-    if self.getOption('debug'):
-      logging.getLogger('dockwrkr').handlers[0].setLevel(logging.DEBUG)
+    def removeCommand(self, commandName):
+        if commandName not in self.commands:
+            raise ValueError("Command '%s' is not registered." % commandName)
+        self.commands.pop(commandName, None)
 
-  def execute(self, args=None):
-    self.input = args
-    (self.options, self.args) = self.parseShellInput(False)
-    self.main()
+    def getHelpDetails(self):
+        helpUsage = "Commands:\n\n"
+        for name, command in self.getCommands().iteritems():
+            helpUsage += "  %-20s%s\n" % (name, command.getHelpTitle())
+        return helpUsage
 
-  def initialize(self):  
-    self.setupLogging()
-    self.setupEnv()
-    self.setupCommands()
+    def setupEnv(self):
+        """Setup the Environment """
 
-  def main(self):
-    try:
-      self.initialize()
+    def setupLogging(self):
+        if self.getOption('debug'):
+            logging.getLogger('dockwrkr').handlers[0].setLevel(logging.DEBUG)
 
-      if not len(self.args) > 0:
-        self.exitError("Please provide a command.\n\nUse 'help' for available commands.")
-  
-      self.cmdString = self.args[0]
-      self.commandInput = self.args[1:]
+    def execute(self, args=None):
+        self.input = args
+        (self.options, self.args) = self.parseShellInput(False)
+        self.main()
 
-      if self.cmdString not in self.commands:
-        return self.exitError("Invalid command '%s' specified for '%s'.\n\nUse 'help %s' for available commands." % (self.cmdString, self.name, self.name))
+    def initialize(self):
+        self.setupLogging()
+        self.setupEnv()
+        self.setupCommands()
 
-      self.runCommand(self.cmdString)
-    except Exception as err:
-      logger.error(traceback.format_exc())
-      self.exitError("Error running command %s: %s" % (self.cmdString, err), code=2)
+    def main(self):
+        try:
+            self.initialize()
 
-  def runCommand(self, commandName):
-    command = self.getCommand(commandName)
-    self.command = self.initCommand(command)
-    self.command.execute(self.commandInput)
+            if not len(self.args) > 0:
+                self.exitError(
+                    "Please provide a command.\n\nUse 'help' for available commands.")
+
+            self.cmdString = self.args[0]
+            self.commandInput = self.args[1:]
+
+            if self.cmdString not in self.commands:
+                return self.exitError(
+                    "Invalid command '%s' specified for '%s'.\n\nUse 'help %s' for available commands." % (self.cmdString, self.name, self.name))
+
+            self.runCommand(self.cmdString)
+        except Exception as err:
+            logger.error(traceback.format_exc())
+            self.exitError("Error running command %s: %s" %
+                           (self.cmdString, err), code=2)
+
+    def runCommand(self, commandName):
+        command = self.getCommand(commandName)
+        self.command = self.initCommand(command)
+        self.command.execute(self.commandInput)
+
 
 class Command(CLI):
-  def __init__(self):
-    super(Command, self).__init__()
+    def __init__(self):
+        super(Command, self).__init__()
+
 
 class SubProgram(Program):
-  def initialize(self):
-    self.setupCommands()
+    def initialize(self):
+        self.setupCommands()

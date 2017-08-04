@@ -18,7 +18,7 @@ setup(name='dockwrkr',
       test_suite='tests',
       packages=find_packages(),
       entry_points={
-        'console_scripts': [
-          'dockwrkr = dockwrkr.cli:cli',
-        ],
+          'console_scripts': [
+              'dockwrkr = dockwrkr.cli:cli',
+          ],
       })
