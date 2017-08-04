@@ -185,7 +185,7 @@ class Core(object):
         registries = self.getRegistries()
         config = registries.get(registry)
         if not config:
-            return Fail(InvalidRegistry("Invalid registry specified for login. It is not configured."))
+            return Fail(InvalidRegistryError("Invalid registry specified for login. It is not configured."))
         logger.info("Logging into registry: %s" % registry)
         return docker.login(registry, config.get('username'), config.get('password'), config.get('email'))
 

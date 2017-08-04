@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 - Unclear error message when referring to undefined container in `link` clause
 
+### Added
+- `dockwrkr login` command for logging into all defined registries
+
 ## [1.0.1] - 2017-06-13
 
 ### Added

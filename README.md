@@ -28,7 +28,7 @@ yet.
 The `docker` command-line tool must also be in your `PATH` variable for this
 script to work properly.
 
-## Usage 
+## Usage
 
 ```
 Usage: dockwrkr [options] COMMAND [command-options]
@@ -59,7 +59,7 @@ Commands:
 ### Configuration File
 
 `dockwrkr` will walk up the current directory to locate the file
-``dockwrkr.yml``. 
+``dockwrkr.yml``.
 
 Your YAML configuration file should define a `containers` key that lists the
 run configuration for your containers.
@@ -100,7 +100,7 @@ containers:
 ```
 
 Each parameter for each container match the ``docker run`` Docker client
-options. 
+options.
 
 
 ### PIDs
@@ -115,7 +115,7 @@ pids:
 ```
 
 If a relative path is specified for `pids.dir`, it will be expanded from the
-configuration file location. 
+configuration file location.
 
 ### status
 
@@ -140,11 +140,11 @@ cron               45c26cf9c3d4   26279    172.17.0.10    1 months ago         -
 
 ### start / stop
 
-These commands will start or stop the specified containers. 
+These commands will start or stop the specified containers.
 
 ```
 # dockwrkr start web
-'web' has been started. 
+'web' has been started.
 # cat /var/run/docker/dockwrkr/web.pid
 18738
 ```
@@ -177,7 +177,7 @@ The program will fetch the running Docker containers and launch a "docker
 stats" stream in your terminal.
 
 ```
-# dockwrkr stats 
+# dockwrkr stats
 CONTAINER           CPU %               MEM USAGE/LIMIT       MEM %               NET I/O
 cache               0.00%               1008 KiB/3.614 GiB    0.03%               5.133 KiB/648 B
 cron                0.02%               8.629 MiB/3.614 GiB   0.23%               3.043 KiB/648 B
@@ -214,6 +214,9 @@ supply credentials for it in your `dockwrkr.yml` file. If `dockwrkr` tries to
 pull an image from a registry that is defined in the `registries` configuration
 key, it will attempt to automatically login before pulling.
 
+You can also manually login via the command `dockwrkr login`.
+
+Here's an example of a simple registry definition in `dockwrkr.yml`:
 
 ```
 pids:
@@ -246,11 +249,11 @@ registries:
 containers:
   private:
     image: 848559394958.dkr.ecr.us-east-1.amazonaws.com/path/private_image:0.4
-    hostname: private 
+    hostname: private
 ```
 
 # Creating user defined networks
-If you want to create user defined networks, you can define them in your dockwrkr.yml file. 
+If you want to create user defined networks, you can define them in your dockwrkr.yml file.
 
 ```
 pids:
@@ -282,13 +285,13 @@ containers:
 
 Provided you have dockwrkr set up, you will need one upstart job file per service you want to hook. The job will simply instruct dockwrkr to start all it's containers at once.
 
-/etc/init/myservice.conf: 
+/etc/init/myservice.conf:
 
 Provided you have `dockwrkr` set up, you will need one upstart job file per
 service you want to hook. The job will simply instruct `dockwrkr` to start all
 its containers at once.
 
-`/etc/init/myservice.conf`: 
+`/etc/init/myservice.conf`:
 ```
 #!upstart
 stop on runlevel [06]

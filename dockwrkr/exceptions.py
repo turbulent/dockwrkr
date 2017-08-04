@@ -61,6 +61,10 @@ class InvalidContainerError(DockwrkrError):
     ''' Invalid container was specified '''
 
 
+class InvalidRegistryError(DockwrkrError):
+    ''' Invalid registry was specified '''
+
+
 class DockerError(ShellCommandError):
     '''
     Raised when a docker error is encountered
