@@ -71,6 +71,8 @@ class Core(object):
 
         def resolveDependencies(node, resolved):
             for dep in node['deps']:
+                if dep not in containers.keys():
+                    raise InvalidContainerError("Container named '%s' is listed as a dependency but it is never defined." % dep)
                 depnode = self.getContainerDependencies(dep)
                 if depnode['name'] not in resolved:
                     resolveDependencies(depnode, resolved)
@@ -106,7 +108,10 @@ class Core(object):
     # Commands
 
     def readOrderedContainers(self, containers=[]):
-        defined = self.getDefinedContainers()
+        try:
+            defined = self.getDefinedContainers()
+        except Exception as e:
+            return Fail(e)
         missing = [x for x in containers if x not in defined]
         ordered = [x for x in defined if x in containers]
         if missing:
@@ -130,12 +135,18 @@ class Core(object):
 
     def stats(self, containers=[]):
         if not containers:
-            containers = self.getDefinedContainers()
+            try:
+                containers = self.getDefinedContainers()
+            except Exception as e:
+                return Fail(e)
         return self.__command(self.__stats, containers=containers)
 
     def status(self, containers=[]):
         if not containers:
-            containers = self.getDefinedContainers()
+            try:
+                containers = self.getDefinedContainers()
+            except Exception as e:
+                return Fail(e)
         return self.__readStates(containers) \
             .bind(self.__status, containers=containers)
 
@@ -151,7 +162,10 @@ class Core(object):
 
     def pull(self, containers=[], all=False):
         if all:
-            containers = self.getDefinedContainers()
+            try:
+                containers = self.getDefinedContainers()
+            except Exception as e:
+                return Fail(e)
 
         registries = self.getRegistries()
 
@@ -177,7 +191,10 @@ class Core(object):
 
     def recreate(self, containers=[], all=False, time=docker.DOCKER_STOP_TIME):
         if all:
-            containers = self.getDefinedContainers()
+            try:
+                containers = self.getDefinedContainers()
+            except Exception as e:
+                return Fail(e)
         return self.__readStates(containers) \
             .bind(self.__remove, containers=containers, force=True, time=time) \
             .then(defer(self.__readStates, containers=containers)) \
@@ -201,7 +218,10 @@ class Core(object):
 
     def __command(self, func, containers=[], all=False, *args, **kwargs):
         if all:
-            containers = self.getDefinedContainers()
+            try:
+                containers = self.getDefinedContainers()
+            except Exception as e:
+                return Fail(e)
         return self.__readStates(containers) \
             .bind(func, containers=containers, *args, **kwargs)
 
