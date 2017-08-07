@@ -54,6 +54,8 @@ Commands:
   status              Output the container status table
   exec                Run a command in a running container
   stats               Output live stats for the listed containers
+  login               Perform docker login using credentials in dockwrkr.yml
+  run                 Run the specified job container
 ```
 
 ### Configuration File
@@ -70,7 +72,7 @@ Here is a sample `dockwrkr.yml` configuration file:
 pids:
   enabled: True
   dir: pids
-containers:
+services:
   hello1:
     image: busybox
     hostname: hello1
@@ -97,16 +99,26 @@ containers:
     command: /bin/sh -c "while true; do echo hello world; sleep 1; done"
     volume:
       - "/path/to/vol:/dest/of/vol"
+jobs:
+  hello-once:
+    image: busybox
+    env:
+      VAR_FOO_VAR: 1
+      VAR_FOO_BAR: "string"
+      VAR_FOO_VAR: null
+    command: /bin/sh -c "echo hello world"
+    volume:
+      - "/path/to/vol:/dest/of/vol"
 ```
 
-Each parameter for each container match the ``docker run`` Docker client
-options.
+Each parameter for each container definition (in `services` or `jobs`) match
+the ``docker run`` Docker client options.
 
 
 ### PIDs
 
-`dockwrkr` can write the pids of the containers it manages. To activate, add
-the ``pids`` section in your `dockwrkr.yml` file.
+`dockwrkr` can write the pids of the services it manages. To activate, add the
+``pids`` section in your `dockwrkr.yml` file.
 
 ```
 pids:
@@ -194,7 +206,7 @@ workers             0.02%               125.5 MiB/3.614 GiB   3.39%             
 
 ### exec
 
-Use this command to execute a command within a container.
+Use this command to execute a command within a service container.
 
 Example:
 ```
@@ -206,6 +218,20 @@ host # dockwrkr exec -ti web bash
 web $  exit
 host #
 ```
+
+### run
+
+Use this command to execute a jobs defined in the `jobs` section of
+`dockwrkr.yml`.
+
+Using the example configuration, you can execute the `say-hello` job like so:
+
+```
+host # dockwrkr run hello-once
+```
+
+You can pass additional parameters to the command; there will be appended to
+the command defined in the job.
 
 ## Logging into docker registries
 
@@ -227,7 +253,7 @@ registries:
     username: foo
     password: bar
     email: foo@bar.com
-containers:
+services:
   private:
     image: rmyregistry.com/path/private_image:0.4
     hostname: private
@@ -246,14 +272,15 @@ registries:
         CiBwm0YaIyYjCVV+BAIBEICCAoo55cBYr9IBaPchhO8Ba0iPy8xRFuvIOSaw2yHVV/lE1
         v5e9FZGck03lrA7q/rAFHRjvCrOdSS+/cvV2kpFv1drVEiMR9EEDRKdgLEw4ung3YrKDHqVZjXhxWaRiC2mFIKaDFNjyNYxY6Kmg5JCJTCwHRjOoWADJ0SJRDJdcqN8oKkyUvCEgW8idIWsFw5pjCLtQNtI2VX3XrnE8s5GLddQIsJOG3d1ak3a8LFzXUVb+V3eOysAuLtrCcZlPGyODZHI1nfcgcqjh16zeNitqRI2+H8G+kGAL2Xlbzwp8gVNkH+AX/vkbi0/1QFy/8KgyC7jvnn3+gedXqjNSW4sDS0yjCyp6pL+S4MVTkyq8fkrB/tdgRtJm5n1G6uqeekXuoXXPe5UFce9Rq8/14xKABgEBAgB4cJtGGiEiXkbSZuZ9RurqnnpF7qF1z3uVBXHvUavP9eMAAAL        XMIIC0wYsXHix4VRzWyzUbB8PANn/Qojf1oMQkQ2u15CZJ8Tol0LHgDi5/qGZ+wHTn+sz/dilpwlmrTuo+6avfZdfQy9r47+EPohNB0OquH03gt3fSjR5efU0ldE62VL/GrgHpgOH9qfSsCDvnKDuwfD5lFEIc3npcLh3djbcchTzCSqHdjAjgQgMQh54JSojL3TydS8WclKg6/W7wQIaozk+zfOoETPq90nO1UtT9QbBxbBBqL1JOs9Wu1owX1Ec9wS5oIuwXYNpHqDTA0EQTV4jZsZ335JMAijcM5GHN7MJ2ukOXOffonmHKoVdNJ7RpLBdz8moVKewhOF4jSh8GMbWu19W3uJsGHyS1oMfZz17whuWdetF77cf5cSUF7HXJEW77zDGRUVo0PWqg2CNEdCaonasScWKLQcT1AjhrQ+ctiXZcjoZGRRxFIZ8qR6t3lwn+sZIGszRkdhEI3lKW7EfZl4PfJVieip8m4sccbcetUzjLeSJeJKoZIhvcNAQcGoIICxDCCAsACAQAwggK5BgkqhkiG9w0BBwEwHgYJYIZIAWUDBAEuMBEEDGyzVF8QSt9pZg9PIg==
     email: "none"
-containers:
+services:
   private:
     image: 848559394958.dkr.ecr.us-east-1.amazonaws.com/path/private_image:0.4
     hostname: private
 ```
 
 # Creating user defined networks
-If you want to create user defined networks, you can define them in your dockwrkr.yml file.
+If you want to create user defined networks, you can define them in your
+dockwrkr.yml file.
 
 ```
 pids:
@@ -271,9 +298,10 @@ networks:
 
 ```
 
-And then specify them in your container definition. You can also optionally assign it a static IP
+And then specify them in your container definition. You can also optionally
+assign it a static IP
 ```
-containers:
+services:
   private:
     image: rmyregistry.com/path/private_image:0.4
     hostname: private
@@ -283,7 +311,9 @@ containers:
 
 # dockwrkr with upstart
 
-Provided you have dockwrkr set up, you will need one upstart job file per service you want to hook. The job will simply instruct dockwrkr to start all it's containers at once.
+Provided you have dockwrkr set up, you will need one upstart job file per
+service you want to hook. The job will simply instruct dockwrkr to start all
+it's containers at once.
 
 /etc/init/myservice.conf:
 

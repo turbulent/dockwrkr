@@ -21,6 +21,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Added
 - `dockwrkr login` command for logging into all defined registries
+- Jobs feature. Define short-lived `jobs` in `dockwrkr.yml` which are executed
+  in an ad-hoc manner.
+
+### Changed
+- `dockwrkr.yml`: `containers` has been renamed to `services`. Support for the
+  `containers` key is maintained until next major release.
 
 ## [1.0.1] - 2017-06-13
 
