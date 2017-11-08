@@ -76,6 +76,7 @@ DOCKER_SINGLE_OPTIONS = [
     'restart',
     'user',
     'uts',
+    'shm-size',
     'stop-signal',
     'workdir',
 ]
