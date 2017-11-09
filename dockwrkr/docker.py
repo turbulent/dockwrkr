@@ -117,12 +117,15 @@ DOCKER_NETWORK_BOOL_OPTIONS = [
 def dockerClient(cmd, params=""):
     return assertDockerVersion().then(defer(dockerReadCommand, cmd, params))
 
+
 def dockerReadCommand(cmd, params="", shell=False, stream=False, cwd=None):
     return Shell.command("%s %s %s" % (DOCKER_CLIENT, cmd, params), shell=False) \
       .catch(onDockerError)
 
+
 def dockerCallCommand(cmd, params=""):
     return Shell.call("%s %s %s" % (DOCKER_CLIENT, cmd, params))
+
 
 def onDockerError(err):
     return Fail(DockerError(
@@ -234,6 +237,7 @@ def remove(container, force=False):
 def pull(image):
     return dockerCallCommand("pull", image) \
         .catchError(ShellCommandError, defer(_pullLoginChain, image=image))
+
 
 def _pullLoginChain(err, image):
     parts = unpackImageString(image)
