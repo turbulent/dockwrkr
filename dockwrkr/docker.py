@@ -115,13 +115,14 @@ DOCKER_NETWORK_BOOL_OPTIONS = [
 
 
 def dockerClient(cmd, params=""):
-    return assertDockerVersion().then(defer(dockerCommand, cmd, params))
+    return assertDockerVersion().then(defer(dockerReadCommand, cmd, params))
 
-
-def dockerCommand(cmd, params="", shell=False, stream=False, cwd=None):
+def dockerReadCommand(cmd, params="", shell=False, stream=False, cwd=None):
     return Shell.command("%s %s %s" % (DOCKER_CLIENT, cmd, params), shell=False) \
-        .catch(onDockerError)
+      .catch(onDockerError)
 
+def dockerCallCommand(cmd, params=""):
+    return Shell.call("%s %s %s" % (DOCKER_CLIENT, cmd, params))
 
 def onDockerError(err):
     return Fail(DockerError(
@@ -137,7 +138,7 @@ def onDockerError(err):
 def readManagedContainers():
     filters = "-q -a --filter 'label=%s.managed=1' --format '{{.Label \"%s.name\"}}'" % (
         DOCKWRKR_LABEL_DOMAIN, DOCKWRKR_LABEL_DOMAIN)
-    return dockerCommand("ps", filters) \
+    return dockerReadCommand("ps", filters) \
         .bind(parseContainerList)
 
 
@@ -149,14 +150,14 @@ def filterExistingContainers(containers):
 def readContainerExists(container):
     filter = "-q -a --filter \"label=%s.name=%s\" --format '{{.Label \"%s.name\"}}'" % (
         DOCKWRKR_LABEL_DOMAIN, safeQuote(container), DOCKWRKR_LABEL_DOMAIN)
-    return dockerCommand("ps", filter) \
+    return dockerReadCommand("ps", filter) \
         .bind(self.parseContainerList) \
         .map(self.__listToBool)
 
 
 def readNetworkExists(network):
     net_filter = '-q --filter \"name=%s\"' % (network.keys()[0])
-    if dockerCommand('network ls', net_filter) \
+    if dockerReadCommand('network ls', net_filter) \
         .bind(parseContainerList) \
             .map(__listToBool).value:
         return Fail("Network Exists")
@@ -167,7 +168,7 @@ def readNetworkExists(network):
 def readContainerRunning(container):
     inspect = "--format=\"{{.State.Running}}\" %s 2> /dev/null" % (
         safeQuote(container))
-    return dockerCommand("inspect", inspect) \
+    return dockerReadCommand("inspect", inspect) \
         .bind(lambda r: OK(True) if r['stdout'] == "true" else OK(False))
 
 
@@ -179,7 +180,7 @@ def readContainerGhosted(container):
             logger.warning("WARNING - '%s' is ghosted." % container)
             return OK(True)
         return OK(False)
-    return dockerCommand("inspect", inspect) \
+    return dockerReadCommand("inspect", inspect) \
         .bind(ghosted)
 
 
@@ -189,13 +190,13 @@ def readContainersStatus(containers=[]):
         return OK({})
 
     inspect = "-f '{{.Name}}|{{.Id}}|{{.Config.Image}}|{{.NetworkSettings.IPAddress}}|{{range $p, $conf := .NetworkSettings.Ports}}{{if $conf}}{{$p}}->{{(index $conf 0).HostPort}}{{end}} {{end}}|{{.State.Pid}}|{{.State.StartedAt}}|{{.State.Running}}|{{.State.ExitCode}}|{{.State.Error}}' %s" % (' '.join(containers))  # noqa
-    return dockerCommand("inspect", inspect) \
+    return dockerReadCommand("inspect", inspect) \
         .bind(parseContainerStatus)
 
 
 def readContainerPid(container):
     inspect = "--format '{{.State.Pid}}' %s" % (safeQuote(container))
-    return dockerCommand("inspect", inspect) \
+    return dockerReadCommand("inspect", inspect) \
         .bind(lambda r: OK(r['stdout'].strip()))
 
 
@@ -204,36 +205,35 @@ def create(container, config, basePath=None, networks=None):
         container, config, basePath=basePath, networks=networks)
     if params.isFail():
         return params
-    return dockerCommand("create", params.getOK())
+    return dockerCallCommand("create", params.getOK())
 
 
 def createNetwork(network):
     params = readCreateNetworkParameters(network)
     if params.isFail():
         return params
-    return dockerCommand("network create", params.getOK())
+    return dockerCallCommand("network create", params.getOK())
 
 
 def start(container):
-    return dockerCommand("start", container)
+    return dockerCallCommand("start", container)
 
 
 def stop(container, time=10):
     params = "-t %s %s" % (time, container)
-    return dockerCommand("stop", params)
+    return dockerCallCommand("stop", params)
 
 
 def remove(container, force=False):
     params = container
     if force:
         params = "-f %s" % container
-    return dockerCommand("rm", params)
+    return dockerCallCommand("rm", params)
 
 
 def pull(image):
-    return Shell.call("%s %s %s" % (DOCKER_CLIENT, "pull", image)) \
+    return dockerCallCommand("pull", image) \
         .catchError(ShellCommandError, defer(_pullLoginChain, image=image))
-
 
 def _pullLoginChain(err, image):
     parts = unpackImageString(image)
@@ -273,7 +273,7 @@ def execmd(container, cmd, tty=False, interactive=False, user=None, detach=None,
     parts.append(container)
     parts.append(' '.join(cmd))
 
-    return Shell.call("%s %s %s" % (DOCKER_CLIENT, "exec", ' '.join(parts)))
+    return dockerCallCommand("exec", ' '.join(parts))
 
 
 def stats(containers=[]):
@@ -283,7 +283,7 @@ def stats(containers=[]):
     parts.append(' '.join(opts))
     parts.append(' '.join(containers))
 
-    return Shell.call("%s %s %s" % (DOCKER_CLIENT, "stats", ' '.join(parts)))
+    return dockerCallCommand("stats", ' '.join(parts))
 
 
 def login(registry, username=None, password=None, email=None):
@@ -295,11 +295,12 @@ def login(registry, username=None, password=None, email=None):
     if email:
         opts.append("-e %s" % email)
 
-    return Shell.call("%s %s %s %s" % (DOCKER_CLIENT, "login", ' '.join(opts), registry))
+    opts.append(registry)
+    return dockerCallCommand("login", ' '.join(opts))
 
 
 def logout(registry):
-    return dockerCommand("logout", "%s" % (registry))
+    return dockerCallCommand("logout", "%s" % (registry))
 
 
 def readCreateNetworkParameters(network):
