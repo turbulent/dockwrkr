@@ -219,19 +219,19 @@ def createNetwork(network):
 
 
 def start(container):
-    return dockerCallCommand("start", container)
+    return dockerReadCommand("start", container)
 
 
 def stop(container, time=10):
     params = "-t %s %s" % (time, container)
-    return dockerCallCommand("stop", params)
+    return dockerReadCommand("stop", params)
 
 
 def remove(container, force=False):
     params = container
     if force:
         params = "-f %s" % container
-    return dockerCallCommand("rm", params)
+    return dockerReadCommand("rm", params)
 
 
 def pull(image):
