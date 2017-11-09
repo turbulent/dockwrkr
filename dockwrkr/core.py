@@ -272,7 +272,7 @@ class Core(object):
             else:
                 if not state[container].running:
                     op = docker.start(container) \
-                        .bind(dinfo("'%s' has been started." % container)) \
+                        .then(dinfo("'%s' has been started." % container)) \
                         .then(defer(self.writePid, container=container))
                     ops.append(op)
                 else:
@@ -287,7 +287,7 @@ class Core(object):
             else:
                 if state[container].running:
                     op = docker.stop(container, time) \
-                        .bind(dinfo("'%s' has been stopped." % container)) \
+                        .then(dinfo("'%s' has been stopped." % container)) \
                         .then(defer(self.clearPid, container=container))
                 else:
                     logger.warn("'%s' is not running." % container)
@@ -305,7 +305,7 @@ class Core(object):
                     else:
                         op = docker.stop(container, time=time) \
                             .then(defer(docker.remove, container=container)) \
-                            .bind(dinfo("'%s' has been stopped and removed." % container)) \
+                            .then(dinfo("'%s' has been stopped and removed." % container)) \
                             .then(defer(self.clearPid, container=container))
                         ops.append(op)
                 else:
@@ -322,12 +322,12 @@ class Core(object):
                 if state[container].running:
                     op = docker.stop(container, time=time) \
                         .then(defer(docker.start, container=container)) \
-                        .bind(dinfo("'%s' has been restarted." % container)) \
+                        .then(dinfo("'%s' has been restarted." % container)) \
                         .then(defer(self.writePid, container=container))
                     ops.append(op)
                 else:
                     ops.append(docker.start(container)
-                               .bind(dinfo("'%s' has been started." % container))) \
+                               .then(dinfo("'%s' has been started." % container))) \
                         .then(defer(self.writePid, container=container))
 
         return Try.sequence(ops)
