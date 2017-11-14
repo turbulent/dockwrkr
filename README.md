@@ -10,8 +10,8 @@ the started containers (for monitoring purposes) as well as provide a series
 of simple command to interrogate the Docker daemon about container status for
 your Docker containers.
 
-Particularely useful when hooking into systemd, Upstart, or other process
-manager.
+Particularly useful when hooking into systemd, Upstart, or other process
+managers.
 
 ## Why not use `docker-compose`?
 
