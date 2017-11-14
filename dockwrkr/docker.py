@@ -18,15 +18,16 @@ DOCKER_LIST_OPTIONS = [
     'cap-add',
     'cap-drop',
     'device',
-    'dns',
     'dns-opt',
     'dns-search',
-    'env',
+    'dns',
     'env-file',
+    'env',
     'expose',
+    'extra-flags',
     'group-add',
-    'label',
     'label-file',
+    'label',
     'link',
     'log-opt',
     'lxc-conf',
@@ -35,7 +36,6 @@ DOCKER_LIST_OPTIONS = [
     'ulimit',
     'volume',
     'volumes-from',
-    'extra-flags',
 ]
 
 DOCKER_MAPEQUAL_OPTIONS = [
@@ -45,55 +45,56 @@ DOCKER_MAPEQUAL_OPTIONS = [
 DOCKER_MAP_OPTIONS = [
     'add-host',
     'link',
-    'volume',
     'publish',
+    'volume',
 ]
 
 
 DOCKER_SINGLE_OPTIONS = [
     'blkio-weight',
-    'cpu-shares',
-    'cpu-period',
-    'cpu-quota',
-    'cpuset-cpus',
-    'cpuset-mems',
     'cgroup-parent',
     'cidfile',
+    'cpu-period',
+    'cpu-quota',
+    'cpu-shares',
+    'cpuset-cpus',
+    'cpuset-mems',
     'entrypoint',
     'hostname',
+    'ip',
     'ipc',
     'kernel-memory',
     'log-driver',
     'mac-address',
-    'memory',
     'memory-reservation'
     'memory-swap',
     'memory-swapiness',
+    'memory',
     'name',
     'net',
-    'ip',
     'pid',
     'restart',
+    'shm-size',
+    'stop-signal',
     'user',
     'uts',
-    'stop-signal',
     'workdir',
 ]
 
 DOCKER_BOOL_OPTIONS = [
     'disable-content-trust',
     'oom-kill-disable',
-    'publish-all',
     'privileged',
+    'publish-all',
     'read-only',
     'sig-proxy',
 ]
 
 DOCKER_NETWORK_LIST_OPTIONS = [
     "gateway",
-    "subnet",
     "ip-range",
     "label",
+    "subnet",
 ]
 
 DOCKER_NETWORK_SINGLE_OPTIONS = [
@@ -104,9 +105,9 @@ DOCKER_NETWORK_MAP_OPTIONS = [
 ]
 
 DOCKER_NETWORK_MAPEQUAL_OPTIONS = [
-    "opt",
     "aux_address",
     "ipam-opt",
+    "opt",
 ]
 DOCKER_NETWORK_BOOL_OPTIONS = [
     "internal",
