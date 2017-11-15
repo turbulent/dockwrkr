@@ -1,9 +1,12 @@
 import logging
+import os
+import arrow
+import subprocess
+
 from dockwrkr.monads import *
 from dockwrkr.shell import Shell
 from dockwrkr.utils import (ensureList, expandLocalPath, safeQuote)
-from dockwrkr.exceptions import ShellCommandError, DockerError
-import arrow
+from dockwrkr.exceptions import ShellCommandError, DockerError, InvalidConfigError
 
 logger = logging.getLogger(__name__)
 
@@ -260,6 +263,19 @@ def unpackImageString(imageStr):
     return unpack
 
 
+def run(container, containerArgs, config, basePath=None, networks=None):
+    params = readCreateParameters(
+        container, config, basePath=basePath, networks=networks, asList=True)
+    if params.isFail():
+        return params
+    try:
+        cmd = [DOCKER_CLIENT, "run", "--rm", "--interactive", "--tty"] + params.getOK() + containerArgs
+        logger.debug("EXECVP - %s" % subprocess.list2cmdline(cmd))
+        os.execvp(DOCKER_CLIENT, cmd)
+    except Exception as ex:
+        return Fail(ex)
+
+
 def execmd(container, cmd, tty=False, interactive=False, user=None, detach=None, privileged=None):
     opts = []
     if tty:
@@ -335,13 +351,13 @@ def readCreateNetworkParameters(network):
                 cmd_opt.append("--%s" % confkey)
         elif confkey in DOCKER_NETWORK_LIST_OPTIONS:
             if not isinstance(confval, (basestring, list, tuple)):
-                return InvalidConfigError(
-                    "[%s] Malformed option '%s': Should be string, number or list." % (network_name, confkey))
+                return Fail(InvalidConfigError(
+                    "[%s] Malformed option '%s': Should be string, number or list." % (network_name, confkey)))
             confval = ensureList(confval)
             for i, lv in enumerate(confval):
                 cmd_list.append("--%s=%s" % (confkey, safeQuote(lv)))
         else:
-            return InvalidConfigError("[%s] Unkown option '%s'." % (network_name, confkey))
+            return Fail(InvalidConfigError("[%s] Unkown option '%s'." % (network_name, confkey)))
 
     for part in cmd_opt:
         cmd.append(part)
@@ -364,7 +380,7 @@ def readCreateNetworkParameters(network):
     return OK(cmdline)
 
 
-def readCreateParameters(container, config, basePath=None, networks=None):
+def readCreateParameters(container, config, basePath=None, networks=None, asList=False):
 
     cconf = config.copy()
 
@@ -376,13 +392,13 @@ def readCreateParameters(container, config, basePath=None, networks=None):
     cconf['name'] = container
 
     if 'image' not in cconf:
-        return InvalidConfigError("[%s] Container has no 'image' defined." % (container))
+        return Fail(InvalidConfigError("[%s] Container has no 'image' defined." % (container)))
     image = cconf['image']
     del cconf['image']
 
-    command = None
+    command = []
     if 'command' in cconf:
-        command = cconf['command']
+        command = ensureList(cconf['command'])
         del cconf['command']
 
     extra_flags = []
@@ -422,15 +438,15 @@ def readCreateParameters(container, config, basePath=None, networks=None):
             elif confval is not None and (confval is False or confval.lower() in ["false", "no"] or confval == 0):
                 cmd_opt.append("--%s=%s" % (confkey, "false"))
             else:
-                return InvalidConfigError("[%s] Invalid value for option '%s' : Must be true or false." % (container, confkey))
+                return Fail(InvalidConfigError("[%s] Invalid value for option '%s' : Must be true or false." % (container, confkey)))
         elif confkey in DOCKER_LIST_OPTIONS:
             if not isinstance(confval, (basestring, list, tuple)):
-                return InvalidConfigError("[%s] Malformed option '%s': Should be string, number or list." % (container, confkey))
+                return Fail(InvalidConfigError("[%s] Malformed option '%s': Should be string, number or list." % (container, confkey)))
             confval = ensureList(confval)
             for i, lv in enumerate(confval):
                 cmd_list.append("--%s=%s" % (confkey, safeQuote(lv)))
         else:
-            return InvalidConfigError("[%s] Unkown option '%s'." % (container, confkey))
+            return Fail(InvalidConfigError("[%s] Unknown option '%s'." % (container, confkey)))
 
     for part in cmd_opt:
         cmd.append(part)
@@ -441,12 +457,17 @@ def readCreateParameters(container, config, basePath=None, networks=None):
     for extra in extra_flags:
         cmd.append(extra)
 
-    cmd.append("--label %s.name=\"%s\"" % (DOCKWRKR_LABEL_DOMAIN, container))
-    cmd.append("--label %s.managed=1" % DOCKWRKR_LABEL_DOMAIN)
+    cmd.append("--label")
+    cmd.append("%s.name=\"%s\"" % (DOCKWRKR_LABEL_DOMAIN, container))
+    cmd.append("--label")
+    cmd.append("%s.managed=1" % DOCKWRKR_LABEL_DOMAIN)
     cmd.append(image)
 
-    if command:
-        cmd.append("%s" % command)
+    for part in command:
+        cmd.append(part)
+
+    if asList:
+        return OK(cmd)
 
     cmdline = ""
     for i, part in enumerate(cmd):
