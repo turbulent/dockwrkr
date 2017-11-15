@@ -100,13 +100,13 @@ services:
     volume:
       - "/path/to/vol:/dest/of/vol"
 jobs:
-  hello-once:
+  print-foo-variables:
     image: busybox
     env:
       VAR_FOO_VAR: 1
       VAR_FOO_BAR: "string"
       VAR_FOO_VAR: null
-    command: /bin/sh -c "echo hello world"
+    command: ['/bin/sh', '-c', 'env | grep FOO']
     volume:
       - "/path/to/vol:/dest/of/vol"
 ```
@@ -224,10 +224,10 @@ host #
 Use this command to execute a jobs defined in the `jobs` section of
 `dockwrkr.yml`.
 
-Using the example configuration, you can execute the `say-hello` job like so:
+Using the example configuration, you can execute the `print-foo-variables` job like so:
 
 ```
-host # dockwrkr run hello-once
+host # dockwrkr run print-foo-variables
 ```
 
 You can pass additional parameters to the command; there will be appended to

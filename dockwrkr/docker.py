@@ -270,7 +270,7 @@ def run(container, containerArgs, config, basePath=None, networks=None):
         return params
     try:
         cmd = [DOCKER_CLIENT, "run", "--rm", "--interactive", "--tty"] + params.getOK() + containerArgs
-        logger.debug("EXECVP - %s" % subprocess.list2cmdline([DOCKER_CLIENT] + cmd))
+        logger.debug("EXECVP - %s" % subprocess.list2cmdline(cmd))
         os.execvp(DOCKER_CLIENT, cmd)
     except Exception as ex:
         return Fail(ex)
@@ -396,9 +396,9 @@ def readCreateParameters(container, config, basePath=None, networks=None, asList
     image = cconf['image']
     del cconf['image']
 
-    command = None
+    command = []
     if 'command' in cconf:
-        command = cconf['command']
+        command = ensureList(cconf['command'])
         del cconf['command']
 
     extra_flags = []
@@ -463,8 +463,8 @@ def readCreateParameters(container, config, basePath=None, networks=None, asList
     cmd.append("%s.managed=1" % DOCKWRKR_LABEL_DOMAIN)
     cmd.append(image)
 
-    if command:
-        cmd.append("%s" % command)
+    for part in command:
+        cmd.append(part)
 
     if asList:
         return OK(cmd)
