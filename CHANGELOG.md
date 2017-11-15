@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 - Jobs feature. Define short-lived `jobs` in `dockwrkr.yml` which are executed
   in an ad-hoc manner.
+- Added support for `shm_size` Docker option
 
 ### Changed
 - The `containers` section of `dockwrkr.yml` has been renamed to `services`, however backward-compatibility for `containers` is still maintained.
