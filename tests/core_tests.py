@@ -77,6 +77,15 @@ class TestCore(tests.TestBase):
                 containers=['hello1'], time=0), OK)
             self.assertIsInstance(core.reset(time=0), OK)
 
+    def testJob(self):
+        Shell.call("cp %s %s" % ("tests/dockwrkr-2.yml",
+            os.path.join(self.basePath, "dockwrkr.yml")))
+
+        with self.pushd(self.basePath):
+            core = Core()
+            self.assertIsInstance(core.initialize(), OK)
+            core.run('hellojob', ['Executing dockwrkr job: OK!'])
+
     @contextmanager
     def pushd(self, newDir):
         previousDir = os.getcwd()

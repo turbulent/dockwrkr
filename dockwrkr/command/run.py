@@ -4,7 +4,7 @@ from dockwrkr import (Command)
 class Run(Command):
 
     def getUsage(self):
-        return "dockwrkr run CONTAINER [ARGS...]"
+        return "dockwrkr run JOBCONTAINER [ARGS...]"
 
     def getHelpTitle(self):
         return "Run the specified job container"

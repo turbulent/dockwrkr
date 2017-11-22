@@ -69,10 +69,7 @@ class Core(object):
 
     def getDefinedContainers(self, configName='containers'):
         graph = []
-        containers = self.config.get(configName)
-        if not containers:
-            containers = self.config
-            self.legacyConfig = True
+        containers = self.config.get(configName, {})
 
         for container in containers.keys():
             node = self.getContainerDependencies(container)

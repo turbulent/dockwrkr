@@ -1,7 +1,7 @@
 pids:
   enabled: True
   dir: pids
-containers:
+services:
   hello1:
     image: busybox
     hostname: hello1
@@ -26,3 +26,9 @@ containers:
       VAR_FOO_BAR: "string"
       VAR_FOO_VAR: null
     command: /bin/sh -c "while true; do echo hello world; sleep 1; done"
+jobs:
+  hellojob:
+    image: busybox
+    hostname: hellojob
+    command: 
+      - echo 
