@@ -39,6 +39,7 @@ DOCKER_LIST_OPTIONS = [
     'ulimit',
     'volume',
     'volumes-from',
+    'sysctl',
 ]
 
 DOCKER_MAPEQUAL_OPTIONS = [

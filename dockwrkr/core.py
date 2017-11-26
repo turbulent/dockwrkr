@@ -351,7 +351,7 @@ class Core(object):
                     ops.append(op)
                 else:
                     ops.append(docker.start(container)
-                               .then(dinfo("'%s' has been started." % container))) \
+                        .then(dinfo("'%s' has been started." % container))) \
                         .then(defer(self.writePid, container=container))
 
         return Try.sequence(ops)

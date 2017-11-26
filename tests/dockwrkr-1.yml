@@ -16,7 +16,7 @@ networks:
     subnet:
       - 172.21.0.0/16
 
-containers:
+services:
   hello1:
     image: busybox
     hostname: hello1
