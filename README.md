@@ -112,7 +112,7 @@ jobs:
 ```
 
 Each parameter for each container definition (in `services` or `jobs`) match
-the ``docker run`` Docker client options.
+the ``docker run`` Docker client [options](https://docs.docker.com/engine/reference/run/#overriding-dockerfile-image-defaults).
 
 
 ### PIDs
