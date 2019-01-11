@@ -70,7 +70,7 @@ class Just(Maybe):
 
 class Nothing(Maybe):
     def get(self):
-        raise NoValue
+        raise ValueError
 
     def __repr__(self):
         return "Nothing"

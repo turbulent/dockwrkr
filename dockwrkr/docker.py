@@ -118,11 +118,6 @@ DOCKER_NETWORK_BOOL_OPTIONS = [
     "ipv6",
 ]
 
-
-def dockerClient(cmd, params=""):
-    return assertDockerVersion().then(defer(dockerReadCommand, cmd, params))
-
-
 def dockerReadCommand(cmd, params="", shell=False, stream=False, cwd=None):
     return Shell.command("%s %s %s" % (DOCKER_CLIENT, cmd, params), shell=False) \
       .catch(onDockerError)
