@@ -94,7 +94,7 @@ class Core(object):
         deps = []
         config = self.getContainerConfig(container)
         if not config:
-            raise InvalidContainerError("Container named '%s' is listed as a dependency but it is never defined." % dep)
+            raise InvalidContainerError("Container named '%s' is listed as a dependency but it is never defined." % container)
         if "link" in config:
             for link in ensureList(config['link']):
                 deps.append(link.partition(':')[0])
