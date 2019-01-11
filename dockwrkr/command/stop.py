@@ -19,6 +19,6 @@ class Stop(Command):
     def main(self):
         containers = self.args
         if not len(self.args) > 0 and not self.options.allc:
-            return self.exitWithHelp("Please provide a container or use -a for all containers.")
+            return self.exitHelp("Please provide a container or use -a for all containers.")
         return self.core.stop(self.args, all=self.getOption('allc'), time=self.getOption('time')) \
             .catch(self.exitError)

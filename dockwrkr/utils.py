@@ -7,6 +7,7 @@ import shutil
 import hashlib
 from time import time
 from datetime import datetime
+from math import floor
 from pkg_resources import Requirement, resource_filename, require
 import yaml
 
@@ -27,7 +28,7 @@ _yaml_mapping_tag = yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG
 
 
 def _dict_representer(dumper, data):
-    return dumper.represent_dict(data.iteritems())
+    return dumper.represent_dict(iter(data.items()))
 
 
 def _dict_constructor(loader, node):
@@ -96,20 +97,20 @@ def dateToAgo(time=False):
         if second_diff < 120:
             return "a minute ago"
         if second_diff < 3600:
-            return str(second_diff / 60) + " minutes ago"
+            return str(floor(second_diff / 60)) + " minutes ago"
         if second_diff < 7200:
             return "an hour ago"
         if second_diff < 86400:
-            return str(second_diff / 3600) + " hours ago"
+            return str(floor(second_diff / 3600)) + " hours ago"
     if day_diff == 1:
         return "Yesterday"
     if day_diff < 7:
         return str(day_diff) + " days ago"
     if day_diff < 31:
-        return str(day_diff / 7) + " weeks ago"
+        return str(floor(day_diff / 7)) + " weeks ago"
     if day_diff < 365:
-        return str(day_diff / 30) + " months ago"
-    return str(day_diff / 365) + " years ago"
+        return str(floor(day_diff / 30)) + " months ago"
+    return str(floor(day_diff / 365)) + " years ago"
 
 
 def writeToFile(data, filename):
@@ -133,9 +134,10 @@ def readYAML(filename):
         stream = open(filename, "r")
         contents = yaml.load(stream)
         return contents
-    except yaml.YAMLError, exc:
+    except yaml.YAMLError as exc:
         msg = "Syntax error in file %s"
         if hasattr(exc, 'problem_mark'):
+            #pylint: disable=E1101
             mark = exc.problem_mark
             msg += " Error position: (%s:%s)" % (mark.line +
                                                  1, mark.column + 1)

@@ -1,4 +1,4 @@
-from __future__ import absolute_import
+
 
 import sys
 import os
@@ -27,17 +27,19 @@ class PassThroughParser(Parser):
     def _process_long_opt(self, rargs, values):
         try:
             optparse.OptionParser._process_long_opt(self, rargs, values)
-        except optparse.BadOptionError, err:
+        except optparse.BadOptionError as err:
             self.largs.append(err.opt_str)
 
     def _process_short_opts(self, rargs, values):
         try:
             optparse.OptionParser._process_short_opts(self, rargs, values)
-        except optparse.BadOptionError, err:
+        except optparse.BadOptionError as err:
             self.largs.append(err.opt_str)
 
 
 class CLI(object):
+    core = None
+
     def __init__(self, assumeYes=False):
         self.assumeYes = assumeYes
         self.args = None
@@ -78,7 +80,6 @@ class CLI(object):
 
     def parseShellInput(self, interspersed=True):
         """Return the options and arguments for this command as a tuple"""
-        usage = self.getUsage()
         parser = self.getParser(interspersed)
         (opts, args) = parser.parse_args(self.input)
         return (opts, args)
@@ -123,10 +124,10 @@ class CLI(object):
         return None
 
     def read(self, msg=""):
-        return raw_input(msg)
+        return input(msg)
 
     def readln(self, msg=""):
-        return raw_input(msg + "\n")
+        return input(msg + "\n")
 
     def readpwd(self, msg=""):
         return getpass(msg)
@@ -138,7 +139,7 @@ class CLI(object):
         if self.assumeYes:
             return True
         print(msg)
-        res = raw_input('Proceed? [N/y] ')
+        res = input('Proceed? [N/y] ')
         if not res.lower().startswith('y'):
             return False
         print('... proceeding')
@@ -158,7 +159,7 @@ class CLI(object):
 
     def exitError(self, msg=None, code=1):
         if msg and isinstance(msg, Exception):
-            logger.error("%s (%s)" % (msg.message, type(msg).__name__))
+            logger.error("%s (%s)" % (msg, type(msg).__name__))
         elif msg:
             logger.error(msg)
         sys.exit(1)
@@ -177,9 +178,9 @@ class Program(CLI):
         pass
 
     def getCommands(self):
-        k = self.commands.keys()
-        v = map(lambda x: self.getCommand(x), k)
-        return OrderedDict(zip(k, v))
+        k = list(self.commands.keys())
+        v = [self.getCommand(x) for x in k]
+        return OrderedDict(list(zip(k, v)))
 
     def getCommand(self, commandName):
         if commandName not in self.commands:
@@ -200,6 +201,9 @@ class Program(CLI):
                 "Command '%s' is already registered." % commandName)
         self.commands[commandName] = commandModule
 
+    def initCommand(self, command):
+        return command
+
     def removeCommand(self, commandName):
         if commandName not in self.commands:
             raise ValueError("Command '%s' is not registered." % commandName)
@@ -207,7 +211,7 @@ class Program(CLI):
 
     def getHelpDetails(self):
         helpUsage = "Commands:\n\n"
-        for name, command in self.getCommands().iteritems():
+        for name, command in self.getCommands().items():
             helpUsage += "  %-20s%s\n" % (name, command.getHelpTitle())
         return helpUsage
 

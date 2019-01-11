@@ -3,7 +3,8 @@ from setuptools import setup, find_packages
 with open('README.rst') as f:
     readme = f.read()
 
-execfile('dockwrkr/_version.py')
+with open('dockwrkr/_version.py') as versionFile:
+    exec(versionFile.read())
 
 install_requires = ['setuptools', 'PyYAML', 'arrow', 'tabulate']
 
@@ -17,6 +18,7 @@ setup(name='dockwrkr',
       install_requires=install_requires,
       test_suite='tests',
       packages=find_packages(),
+      python_requires='>=3',
       entry_points={
           'console_scripts': [
               'dockwrkr = dockwrkr.cli:cli',

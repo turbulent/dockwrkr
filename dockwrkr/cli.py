@@ -1,4 +1,4 @@
-from __future__ import absolute_import
+
 import os
 import sys
 import logging
@@ -53,7 +53,6 @@ class DockwrkrCLI(Program):
             command.assumeYes = True
 
         if self.getOption('configFile') and os.path.isfile(self.getOption('configFile')):
-            logging.debug("CONF %s" % self.getOption('configFile'))
             core.configFile = self.getOption('configFile')
 
         if command.autoInitCore:

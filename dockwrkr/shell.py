@@ -24,7 +24,7 @@ class Shell(object):
 
         logger.info(msg)
         try:
-            res = raw_input('Proceed? [N/y] ')
+            res = input('Proceed? [N/y] ')
             if res.lower().startswith('y'):
                 logger.info('... proceeding')
                 return OK(True)
@@ -52,7 +52,7 @@ class Shell(object):
         logger.debug("COMMAND: %s", cmd)
         try:
             out = check_output(shlex.split(cmd), shell=shell, cwd=cwd)
-            return OK({'code': 0, 'stdout': out.strip(), 'stderr': ''})
+            return OK({'code': 0, 'stdout': out.decode().strip(), 'stderr': ''})
         except CalledProcessError as err:
             return Fail(ShellCommandError(code=err.returncode, message=err.output, stdout=err.output))
 
@@ -63,6 +63,8 @@ class Shell(object):
             proc = Popen(shlex.split(cmd), shell=shell,
                          stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
             pout, perr = proc.communicate()
+            pout = pout.decode()
+            perr = perr.decode()
             if proc.returncode == 0:
                 return OK({"code": proc.returncode, "stdout": pout, "stderr": perr})
             else:
@@ -77,26 +79,28 @@ class Shell(object):
             logger.debug("COMMAND: %s", cmd)
             proc = Popen(shlex.split(cmd), shell=shell,
                          stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
-            stdout = ''
-            stderr = ''
+            stdout = b''
+            stderr = b''
             while True:
                 d = proc.stdout.read(1)
                 if d != '':
                     stdout += d
                 if stream:
-                    sys.stdout.write(d)
+                    sys.stdout.write(d.encode())
                     sys.stdout.flush()
 
                 de = proc.stderr.read(1)
                 if de != '':
                     stderr += de
                 if stream:
-                    sys.stderr.write(de)
+                    sys.stderr.write(de.encode())
                     sys.stderr.flush()
 
                 if d == '' and de == '' and proc.poll() is not None:
                     break
 
+            stdout = stdout.decode()
+            stderr = stderr.decode()
             if proc.returncode == 0:
                 return OK({"code": proc.returncode, "stdout": stdout, "stderr": stderr})
             else:
@@ -117,7 +121,7 @@ class Shell(object):
             return Fail(ShellCommandError(code=1, message="Failed to chmod %s: %s" % (path, err)))
 
     @staticmethod
-    def makeDirectory(path, mode=0750):
+    def makeDirectory(path, mode=0o750):
         if not os.path.exists(path):
             try:
                 os.makedirs(path, mode)

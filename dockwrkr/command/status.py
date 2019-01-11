@@ -5,7 +5,6 @@ import tabulate
 
 logger = logging.getLogger(__name__)
 
-
 class Status(Command):
 
     def getShellOptions(self, optparser):
@@ -18,13 +17,14 @@ class Status(Command):
         return "Output the container status table"
 
     def main(self):
-        containers = self.args
         return self.core.status(self.args) \
             .bind(self.tabulateStatus) \
             .catch(self.exitError) \
             .bind(logger.info)
 
     def tabulateStatus(self, containerStatuses):
+        logger.debug("STATUSES: %s" %containerStatuses)
+
         headers = ["NAME", "CONTAINER", "PID", "IP", "UPTIME", "EXIT"]
         tabulate.MIN_PADDING = 8
         table = tabulate.tabulate(

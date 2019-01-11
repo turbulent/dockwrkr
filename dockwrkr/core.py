@@ -71,7 +71,7 @@ class Core(object):
         graph = []
         containers = self.config.get(configName, {})
 
-        for container in containers.keys():
+        for container in list(containers.keys()):
             node = self.getContainerDependencies(container)
             graph.append(node)
 
@@ -194,7 +194,7 @@ class Core(object):
             return op.then(defer(docker.pull, image=image)) \
                 .then(dinfo("'%s' (%s) has been pulled." % (container, image)))
 
-        return Try.sequence(map(pullImage, containers))
+        return Try.sequence(list(map(pullImage, containers)))
 
     def login(self, registry):
         registries = self.getRegistries()

@@ -152,7 +152,7 @@ def readManagedContainers():
 
 def filterExistingContainers(containers):
     return readManagedContainers() \
-        .map(lambda l: filter(lambda x: x in containers, l))
+        .map(lambda l: [x for x in l if x in containers])
 
 
 def readContainerExists(container):
@@ -164,7 +164,7 @@ def readContainerExists(container):
 
 
 def readNetworkExists(network):
-    net_filter = '-q --filter \"name=%s\"' % (network.keys()[0])
+    net_filter = '-q --filter \"name=%s\"' % (list(network.keys())[0])
     if dockerReadCommand('network ls', net_filter) \
         .bind(parseContainerList) \
             .map(__listToBool).value:
@@ -326,7 +326,7 @@ def logout(registry):
 
 
 def readCreateNetworkParameters(network):
-    network_name = network.keys()[0]
+    network_name = list(network.keys())[0]
     network_params = network[network_name]
 
     cmd = []
@@ -334,10 +334,10 @@ def readCreateNetworkParameters(network):
     cmd_list = []
     cmd_map = []
 
-    for confkey, confval in network_params.iteritems():
+    for confkey, confval in network_params.items():
         if confkey in DOCKER_NETWORK_MAP_OPTIONS or confkey in DOCKER_NETWORK_MAPEQUAL_OPTIONS:
             if isinstance(confval, dict):
-                for ck, cv in confval.iteritems():
+                for ck, cv in confval.items():
                     if confkey in DOCKER_NETWORK_MAPEQUAL_OPTIONS:
                         cmd_map.append("--%s=\"%s\"=\"%s\"" %
                                        (confkey, ck, safeQuote(cv)))
@@ -351,7 +351,7 @@ def readCreateNetworkParameters(network):
             if confval is not None and (confval is True or confval.lower() in ["true", "yes"] or confval == 1):
                 cmd_opt.append("--%s" % confkey)
         elif confkey in DOCKER_NETWORK_LIST_OPTIONS:
-            if not isinstance(confval, (basestring, list, tuple)):
+            if not isinstance(confval, (str, list, tuple)):
                 return Fail(InvalidConfigError(
                     "[%s] Malformed option '%s': Should be string, number or list." % (network_name, confkey)))
             confval = ensureList(confval)
@@ -412,10 +412,10 @@ def readCreateParameters(container, config, basePath=None, networks=None, asList
     cmd_list = []
     cmd_map = []
 
-    for confkey, confval in cconf.iteritems():
+    for confkey, confval in cconf.items():
         if confkey in DOCKER_MAP_OPTIONS or confkey in DOCKER_MAPEQUAL_OPTIONS:
             if isinstance(confval, dict):
-                for ck, cv in confval.iteritems():
+                for ck, cv in confval.items():
                     if confkey in DOCKER_MAPEQUAL_OPTIONS:
                         cmd_map.append("--%s=%s=%s" %
                                        (confkey, ck, safeQuote(cv)))
@@ -441,7 +441,7 @@ def readCreateParameters(container, config, basePath=None, networks=None, asList
             else:
                 return Fail(InvalidConfigError("[%s] Invalid value for option '%s' : Must be true or false." % (container, confkey)))
         elif confkey in DOCKER_LIST_OPTIONS:
-            if not isinstance(confval, (basestring, list, tuple)):
+            if not isinstance(confval, (str, list, tuple)):
                 return Fail(InvalidConfigError("[%s] Malformed option '%s': Should be string, number or list." % (container, confkey)))
             confval = ensureList(confval)
             for i, lv in enumerate(confval):
@@ -534,6 +534,8 @@ class ContainerStatus(object):
         else:
             return "-"
 
+    def __repr__(self):
+        return "%s" % self.__dict__
 
 def parseContainerStatus(inspect):
     statuses = {}
