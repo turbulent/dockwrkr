@@ -6,6 +6,7 @@ from dockwrkr import (Program, Core)
 from dockwrkr.utils import getPackageVersion
 import dockwrkr.logs
 
+logger = logging.getLogger(__name__)
 
 class DockwrkrCLI(Program):
     """Dockwrkr CLI command"""
@@ -53,6 +54,7 @@ class DockwrkrCLI(Program):
             command.assumeYes = True
 
         if self.getOption('configFile') and os.path.isfile(self.getOption('configFile')):
+            logger.debug("Configuration file: %s" % self.getOption('configFile'))
             core.configFile = self.getOption('configFile')
 
         if command.autoInitCore:
