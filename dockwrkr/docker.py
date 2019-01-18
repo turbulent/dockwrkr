@@ -149,6 +149,8 @@ def filterExistingContainers(containers):
     return readManagedContainers() \
         .map(lambda l: [x for x in l if x in containers])
 
+def readServerVersion():
+    return dockerReadCommand("version", "--format '{{.Server.Version}}'")
 
 def readContainerExists(container):
     filter = "-q -a --filter \"label=%s.name=%s\" --format '{{.Label \"%s.name\"}}'" % (
@@ -305,11 +307,18 @@ def stats(containers=[]):
 
 def login(registry, username=None, password=None, email=None):
     opts = []
+
+    vers = readServerVersion()
+    if vers.isFail():
+        return vers
+    else:
+        vers = vers.getOK()
+
     if username:
         opts.append("-u %s" % username)
     if password:
         opts.append("-p %s" % password)
-    if email:
+    if email and vers < 17:
         opts.append("-e %s" % email)
 
     opts.append(registry)
