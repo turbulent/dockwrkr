@@ -152,7 +152,7 @@ def filterExistingContainers(containers):
 
 def readServerVersion():
     return dockerReadCommand("version", "--format '{{.Server.Version}}'") \
-        .bind(lambda c: c.stdout)
+        .bind(lambda c: c.get('stdout'))
 
 def readContainerExists(container):
     filter = "-q -a --filter \"label=%s.name=%s\" --format '{{.Label \"%s.name\"}}'" % (
