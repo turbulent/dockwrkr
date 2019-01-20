@@ -2,6 +2,7 @@ import logging
 import os
 import arrow
 import subprocess
+import semver
 
 from dockwrkr.monads import *
 from dockwrkr.shell import Shell
@@ -150,14 +151,15 @@ def filterExistingContainers(containers):
         .map(lambda l: [x for x in l if x in containers])
 
 def readServerVersion():
-    return dockerReadCommand("version", "--format '{{.Server.Version}}'")
+    return dockerReadCommand("version", "--format '{{.Server.Version}}'") \
+        .bind(lambda c: c.stdout)
 
 def readContainerExists(container):
     filter = "-q -a --filter \"label=%s.name=%s\" --format '{{.Label \"%s.name\"}}'" % (
         DOCKWRKR_LABEL_DOMAIN, safeQuote(container), DOCKWRKR_LABEL_DOMAIN)
     return dockerReadCommand("ps", filter) \
-        .bind(self.parseContainerList) \
-        .map(self.__listToBool)
+        .bind(parseContainerList) \
+        .map(__listToBool)
 
 
 def readNetworkExists(network):
@@ -318,7 +320,7 @@ def login(registry, username=None, password=None, email=None):
         opts.append("-u %s" % username)
     if password:
         opts.append("-p %s" % password)
-    if email and vers < 17:
+    if email and semver.match(vers, "<17.0.6"):
         opts.append("-e %s" % email)
 
     opts.append(registry)

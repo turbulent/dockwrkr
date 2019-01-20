@@ -6,7 +6,7 @@ with open('README.rst') as f:
 with open('dockwrkr/_version.py') as versionFile:
     exec(versionFile.read())
 
-install_requires = ['setuptools', 'PyYAML', 'arrow', 'tabulate']
+install_requires = ['setuptools', 'PyYAML', 'arrow', 'tabulate', 'semver>=2.7']
 
 setup(name='dockwrkr',
       version=__version__,
