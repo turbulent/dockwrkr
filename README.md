@@ -22,8 +22,7 @@ start using the option right away in your `dockwrkr.yml` file!
 
 ## Requirements
 
-This script requires Python 2.7.x to work. Support for Python 3.x is not ready
-yet.
+This script requires Python 3.x to work.
 
 The `docker` command-line tool must also be in your `PATH` variable for this
 script to work properly.
@@ -33,7 +32,7 @@ script to work properly.
 ```
 Usage: dockwrkr [options] COMMAND [command-options]
 
-Docker container composition (version: 0.3)
+Docker container composition (version: 2.0.4)
 
 Options:
   -f CONFIGFILE  Override default config file
