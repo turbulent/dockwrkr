@@ -183,6 +183,21 @@ containers.
 'abelo' has been created and started.
 ```
 
+#### Extra start flags
+
+Additional flags can be added to the docker `start` command by using the `extra-flags` configuration key.
+
+```
+services:
+  hello1:
+    image: busybox
+    hostname: hello1
+    extra-flags:
+      - "--interactive"
+```
+
+See `docker start --help` for additional options.
+
 ### stats
 
 The program will fetch the running Docker containers and launch a "docker
