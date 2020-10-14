@@ -132,7 +132,7 @@ def writeYAML(filename, data):
 def readYAML(filename):
     try:
         stream = open(filename, "r")
-        contents = yaml.load(stream)
+        contents = yaml.load(stream, Loader=yaml.FullLoader)
         return contents
     except yaml.YAMLError as exc:
         msg = "Syntax error in file %s"
