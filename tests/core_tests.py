@@ -34,8 +34,13 @@ class TestCore(tests.TestBase):
             self.assertIsInstance(core.start(containers=['hello1']), OK)
             self.assertIsInstance(core.start(containers=['hello2']), OK)
             self.assertIsInstance(core.start(containers=['hello3']), OK)
+            self.assertIsInstance(core.start(containers=['hello4']), OK)
             self.assertIsInstance(core.stop(all=True, time=0), OK)
             self.assertIsInstance(core.start(all=True), OK)
+
+            # Test hello4 has no PID
+            self.assertEqual('-', core.status(containers=['hello4']).getOK()[0][2])
+
             self.assertIsInstance(core.pull(all=True), OK)
             self.assertIsInstance(core.excmd(
                 container='hello1', cmd=['ls', '-al']), OK)

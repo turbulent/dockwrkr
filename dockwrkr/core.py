@@ -58,20 +58,23 @@ class Core(object):
         networks = self.config.get('networks', {})
         return networks
 
-    def getDefinedServices(self):
+    def getDefinedServices(self, func=None, all=False):
         config_name = 'services'
         if not self.config.get(config_name):
             config_name = 'containers'
-        return self.getDefinedContainers(config_name)
+        return self.getDefinedContainers(config_name, func, all)
 
     def getDefinedJobs(self):
         return self.getDefinedContainers('jobs')
 
-    def getDefinedContainers(self, configName='containers'):
+    def getDefinedContainers(self, configName='containers', func=None, all=False):
         graph = []
         containers = self.config.get(configName, {})
 
-        for container in list(containers.keys()):
+        for (container, container_config) in containers.items():
+            if func == self.__start and all and not container_config.get('autostart', True):
+                continue
+
             node = self.getContainerDependencies(container)
             graph.append(node)
 
@@ -243,7 +246,7 @@ class Core(object):
     def __command(self, func, containers=[], all=False, *args, **kwargs):
         if all:
             try:
-                containers = self.getDefinedServices()
+                containers = self.getDefinedServices(func, all)
             except Exception as e:
                 return Fail(e)
         return self.__readStates(containers) \
