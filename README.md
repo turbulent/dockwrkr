@@ -91,6 +91,7 @@ services:
   hello3:
     image: busybox
     hostname: hello1
+    autostart: false
     env:
       VAR_FOO_VAR: 1
       VAR_FOO_BAR: "string"
@@ -110,8 +111,9 @@ jobs:
       - "/path/to/vol:/dest/of/vol"
 ```
 
-Each parameter for each container definition (in `services` or `jobs`) match
-the ``docker run`` Docker client [options](https://docs.docker.com/engine/reference/run/#overriding-dockerfile-image-defaults).
+Each parameter for each container definition (in `services` or `jobs`) matches
+the ``docker run`` Docker client [options](https://docs.docker.com/engine/reference/run/#overriding-dockerfile-image-defaults)
+with the exception of [`autostart`](#startstop) which is only used internally.
 
 
 ### PIDs
@@ -149,7 +151,7 @@ qmgr               cf6766f0c39c   24364    172.17.0.5     1 months ago         -
 cron               45c26cf9c3d4   26279    172.17.0.10    1 months ago         -
 ```
 
-### start / stop
+### start/stop
 
 These commands will start or stop the specified containers.
 
@@ -162,7 +164,7 @@ These commands will start or stop the specified containers.
 
 You can affect multiple containers at once by listing them on the command line.
 Alternatively you can also use the `-a` switch to affect all defined
-containers.
+containers, except those flagged with `autostart: false`.
 
 ```
 # dockwrkr stop web cache

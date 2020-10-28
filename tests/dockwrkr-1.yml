@@ -47,3 +47,14 @@ services:
       VAR_FOO_BAR: "string"
       VAR_FOO_VAR: null
     command: /bin/sh -c "while true; do echo hello world; sleep 1; done"
+  hello4:
+    image: busybox
+    hostname: hello1
+    net: container-network3
+    autostart: false
+    ip: 172.21.0.16
+    env:
+      VAR_FOO_VAR: 1
+      VAR_FOO_BAR: "string"
+      VAR_FOO_VAR: null
+    command: /bin/sh -c "while true; do echo hello world; sleep 1; done"

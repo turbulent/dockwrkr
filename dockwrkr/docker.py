@@ -391,6 +391,10 @@ def readCreateParameters(container, config, basePath=None, networks=None, asList
 
     cconf = config.copy()
 
+    # Autostart is only used by dockwrkr, we do not want to pass it to docker
+    if 'autostart' in cconf:
+        del cconf['autostart']
+
     if 'net' in cconf:
         if networks and cconf['net'] in networks:
             readNetworkExists({cconf['net']: networks[cconf['net']]}) \
