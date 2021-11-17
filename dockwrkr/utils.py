@@ -115,7 +115,7 @@ def dateToAgo(time=False):
 
 def writeToFile(data, filename):
     try:
-        with open(filename, "wb") as fh:
+        with open(filename, "w") as fh:
             fh.write(data)
     except Exception as err:
         raise FileSystemError("Failed to write to %s : %s" % (filename, err))
